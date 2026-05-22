@@ -338,7 +338,7 @@
   </div>
 
   <button id="btn-update">🔄 形状を更新</button>
-  <button id="btn-download">⬇ STL ダウンロード（Step4で実装）</button>
+  <button id="btn-download">⬇ STL ダウンロード</button>
 
   <div id="guide">
     <b>マウス操作</b><br>
@@ -988,11 +988,128 @@ document.getElementById('hooksOn').addEventListener('change', buildMesh);
 
 document.getElementById('btn-update').addEventListener('click', buildMesh);
 
-document.getElementById('btn-download').addEventListener('click', () => {
+// ============================================================
+//  STL エクスポート（バイナリ形式）
+// ============================================================
+function exportSTL() {
+  meshGroup.updateMatrixWorld(true);
+
+  // 1. 三角形の総数をカウント
+  let N = 0;
+  meshGroup.traverse((obj) => {
+    if (!obj.isMesh) return;
+    const geo = obj.geometry;
+    if (!geo || !geo.attributes.position) return;
+    const idx = geo.index;
+    N += idx ? idx.count / 3 : geo.attributes.position.count / 3;
+  });
+  if (N === 0) return null;
+
+  // 2. バイナリ STL バッファ確保
+  //    [80byte header] + [4byte uint32 triangle count] + [50byte * N]
+  const buffer = new ArrayBuffer(84 + N * 50);
+  const view   = new DataView(buffer);
+
+  // 3. 80 byte ヘッダ（説明文字列）
+  const desc = 'drain cover generator (Y-up, mm) - binary STL';
+  for (let i = 0; i < Math.min(desc.length, 80); i++) {
+    view.setUint8(i, desc.charCodeAt(i));
+  }
+
+  // 4. 三角形数
+  view.setUint32(80, N, true);
+
+  // 5. 全三角形を書き込み
+  const v1 = new THREE.Vector3();
+  const v2 = new THREE.Vector3();
+  const v3 = new THREE.Vector3();
+  const cb = new THREE.Vector3();
+  const ab = new THREE.Vector3();
+  const nv = new THREE.Vector3();
+
+  let off = 84;
+  meshGroup.traverse((obj) => {
+    if (!obj.isMesh) return;
+    const geo = obj.geometry;
+    if (!geo || !geo.attributes.position) return;
+
+    const pos      = geo.attributes.position;
+    const idx      = geo.index;
+    const matrix   = obj.matrixWorld;
+    const triCount = idx ? idx.count / 3 : pos.count / 3;
+
+    for (let i = 0; i < triCount; i++) {
+      const i1 = idx ? idx.getX(i * 3 + 0) : i * 3 + 0;
+      const i2 = idx ? idx.getX(i * 3 + 1) : i * 3 + 1;
+      const i3 = idx ? idx.getX(i * 3 + 2) : i * 3 + 2;
+
+      v1.fromBufferAttribute(pos, i1).applyMatrix4(matrix);
+      v2.fromBufferAttribute(pos, i2).applyMatrix4(matrix);
+      v3.fromBufferAttribute(pos, i3).applyMatrix4(matrix);
+
+      // 法線 = (v3 - v2) × (v1 - v2) (Three.js の CCW 規約)
+      cb.subVectors(v3, v2);
+      ab.subVectors(v1, v2);
+      nv.crossVectors(cb, ab);
+      if (nv.lengthSq() > 0) nv.normalize();
+      else nv.set(0, 0, 1);
+
+      view.setFloat32(off +  0, nv.x, true);
+      view.setFloat32(off +  4, nv.y, true);
+      view.setFloat32(off +  8, nv.z, true);
+      view.setFloat32(off + 12, v1.x, true);
+      view.setFloat32(off + 16, v1.y, true);
+      view.setFloat32(off + 20, v1.z, true);
+      view.setFloat32(off + 24, v2.x, true);
+      view.setFloat32(off + 28, v2.y, true);
+      view.setFloat32(off + 32, v2.z, true);
+      view.setFloat32(off + 36, v3.x, true);
+      view.setFloat32(off + 40, v3.y, true);
+      view.setFloat32(off + 44, v3.z, true);
+      view.setUint16 (off + 48, 0, true);   // attribute byte count (常に 0)
+      off += 50;
+    }
+  });
+
+  return { buffer, triCount: N };
+}
+
+function downloadSTL() {
   const s = document.getElementById('status');
-  s.textContent = '⚠️ STL出力は Step4 で実装します';
-  setTimeout(() => { s.textContent = '✅ 準備完了'; }, 2500);
-});
+  s.textContent = '⏳ STL 生成中...';
+
+  // 1フレーム後に実行（UI 更新の機会を与える）
+  setTimeout(() => {
+    const result = exportSTL();
+    if (!result) {
+      s.textContent = '⚠️ メッシュが空です';
+      setTimeout(() => { s.textContent = '✅ 準備完了'; }, 2500);
+      return;
+    }
+
+    const blob = new Blob([result.buffer], { type: 'application/octet-stream' });
+    const url  = URL.createObjectURL(blob);
+
+    // ファイル名を主要寸法から生成
+    const outerD = document.getElementById('outerD').value;
+    const holeD  = document.getElementById('holeD').value;
+    const filename = `drain_cover_D${outerD}_hole${holeD}.stl`;
+
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+
+    const sizeKB = (result.buffer.byteLength / 1024).toFixed(1);
+    s.textContent = `✅ DL完了 (${result.triCount}三角形 / ${sizeKB} KB)`;
+    setTimeout(() => { s.textContent = '✅ 準備完了'; }, 4000);
+  }, 30);
+}
+
+document.getElementById('btn-download').addEventListener('click', downloadSTL);
 
 // ============================================================
 //  モバイル：パネルの開閉

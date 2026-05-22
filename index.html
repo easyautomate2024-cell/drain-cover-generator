@@ -961,13 +961,15 @@ function buildMesh() {
     bottomShape.holes.push(bumpHole);
   }
 
-  // メッシュ穴グリッド（端では円弧クリップした部分穴も作成）
-  const slotInfo = [];  // [{cx, cy, halfSlot}] for STL export reconstruction
+  // メッシュ穴グリッド（外周と中央凸の両方で円弧クリップ）
+  const slotInfo = [];
   if (meshOn && (barW + slotSize) > 0.1) {
-    const pitch      = barW + slotSize;
-    const halfSlot   = slotSize / 2;
-    const innerSafeR = bottomR - barW;   // 完全な矩形が収まる半径
-    const outerLimit = bottomR;          // クリップ円（ディスクの外周）
+    const pitch       = barW + slotSize;
+    const halfSlot    = slotSize / 2;
+    const innerSafeR  = bottomR - barW;       // この外側になるとディスク外周クリップ要
+    const outerLimit  = bottomR;              // ディスク外周（クリップ目標円）
+    const bumpClipR   = doBumpClip ? bumpR_clip : 0;
+    const bumpOuterSafeR = bumpClipR + barW;  // この内側になるとバンプ境界クリップ要
 
     const gridN = Math.ceil(bottomR * 2 / pitch) + 2;
     const start = -Math.floor(gridN / 2) * pitch;
@@ -977,72 +979,72 @@ function buildMesh() {
         const cx = start + i * pitch;
         const cy = start + j * pitch;
 
-        // 最遠 / 最近コーナーの原点からの距離
         const farX = Math.abs(cx) + halfSlot;
         const farY = Math.abs(cy) + halfSlot;
         const farDist  = Math.sqrt(farX * farX + farY * farY);
-        const nearX    = Math.max(0, Math.abs(cx) - halfSlot);
-        const nearY    = Math.max(0, Math.abs(cy) - halfSlot);
+        const nearX = Math.max(0, Math.abs(cx) - halfSlot);
+        const nearY = Math.max(0, Math.abs(cy) - halfSlot);
         const nearDist = Math.sqrt(nearX * nearX + nearY * nearY);
-
-        // スロットが完全に円外: スキップ
-        if (nearDist >= outerLimit) continue;
-
-        // 中央凸領域: 最近コーナーが bumpR + barW より内側なら skip
-        if (doBumpClip && nearDist < bumpR_clip + barW) continue;
-
-        // 中心が外周に近すぎる場合は skip（薄すぎる薄片回避）
         const centerDist = Math.sqrt(cx * cx + cy * cy);
+
+        // 完全外: スキップ
+        if (nearDist >= outerLimit) continue;
+        // 完全にバンプの中: スキップ
+        if (bumpClipR > 0 && farDist <= bumpClipR) continue;
+        // 中心が外周ギリギリ or バンプギリギリは薄片回避でスキップ
         if (centerDist > outerLimit - barW * 0.3) continue;
+        if (bumpClipR > 0 && centerDist < bumpClipR + barW * 0.3) continue;
+
+        const needsOuterClip = farDist > innerSafeR;
+        const needsBumpClip  = bumpClipR > 0 && nearDist < bumpOuterSafeR;
 
         const slot = new THREE.Path();
-
-        if (farDist <= innerSafeR) {
-          // 完全に内側: 通常の矩形穴
+        if (!needsOuterClip && !needsBumpClip) {
+          // 完全に annular 内側: 矩形そのまま
           slot.moveTo(cx - halfSlot, cy - halfSlot);
           slot.lineTo(cx - halfSlot, cy + halfSlot);
           slot.lineTo(cx + halfSlot, cy + halfSlot);
           slot.lineTo(cx + halfSlot, cy - halfSlot);
           slot.lineTo(cx - halfSlot, cy - halfSlot);
         } else {
-          // 円弧クリップが必要: 矩形周囲をサンプリングして円外の点を円周上へ射影
-          const samples  = 16;  // 1辺あたりのサンプル数
-          const corners  = [
-            [cx - halfSlot, cy - halfSlot],  // BL
-            [cx - halfSlot, cy + halfSlot],  // TL
-            [cx + halfSlot, cy + halfSlot],  // TR
-            [cx + halfSlot, cy - halfSlot],  // BR
+          // クリッピング: 矩形周囲をサンプリングして円外/円内を境界に射影
+          const samples = 16;
+          const corners = [
+            [cx - halfSlot, cy - halfSlot],
+            [cx - halfSlot, cy + halfSlot],
+            [cx + halfSlot, cy + halfSlot],
+            [cx + halfSlot, cy - halfSlot],
           ];
           const rawPts = [];
           for (let s = 0; s < 4; s++) {
-            const a = corners[s];
-            const b = corners[(s + 1) % 4];
+            const a = corners[s], b = corners[(s + 1) % 4];
             for (let k = 0; k < samples; k++) {
               const t = k / samples;
               let x = a[0] + (b[0] - a[0]) * t;
               let y = a[1] + (b[1] - a[1]) * t;
               const r = Math.sqrt(x * x + y * y);
-              if (r > outerLimit) {
+              if (bumpClipR > 0 && r < bumpClipR) {
+                // バンプ内側は外側へ射影
+                const sc = bumpClipR / r;
+                x *= sc; y *= sc;
+              } else if (r > outerLimit) {
+                // 外周外側は内側へ射影
                 const sc = outerLimit / r;
                 x *= sc; y *= sc;
               }
               rawPts.push([x, y]);
             }
           }
-          // 連続する近接点を間引き
           const pts = [];
           for (const p of rawPts) {
             const prev = pts[pts.length - 1];
-            if (!prev || Math.abs(prev[0] - p[0]) > 0.05 || Math.abs(prev[1] - p[1]) > 0.05) {
-              pts.push(p);
-            }
+            if (!prev || Math.abs(prev[0] - p[0]) > 0.05 || Math.abs(prev[1] - p[1]) > 0.05) pts.push(p);
           }
           if (pts.length > 1) {
             const f = pts[0], l = pts[pts.length - 1];
             if (Math.abs(f[0] - l[0]) < 0.05 && Math.abs(f[1] - l[1]) < 0.05) pts.pop();
           }
           if (pts.length < 3) continue;
-
           slot.moveTo(pts[0][0], pts[0][1]);
           for (let k = 1; k < pts.length; k++) slot.lineTo(pts[k][0], pts[k][1]);
           slot.lineTo(pts[0][0], pts[0][1]);

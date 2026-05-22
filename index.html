@@ -712,12 +712,21 @@ function buildCageWall(outerR, innerR, yBottom, yTop, barW, slotSize) {
 function buildHooks(outerR, holeR, thickness, count, hookH, hookBaseR) {
   if (count < 1 || hookH < 0.1 || hookBaseR < 0.1) return;
 
-  // フックの根元（円錐底面）の半径位置 = リムの外径
-  // 円錐は径方向に水平に伸び、頂点が外側を向く
-  const placeR = outerR;
+  // 底面全体が rim 材料内に密着するよう配置:
+  //   底面コーナー（半径方向の最遠点）がリム外周上にちょうど接する位置に底面中心を置く
+  //   → placeR² + hookBaseR² = outerR²
+  //   → placeR = sqrt(outerR² - hookBaseR²)
+  //   こうすることで底面の全周がリムの円柱外周にぴったり接する
+  const placeR = Math.sqrt(Math.max(0, outerR * outerR - hookBaseR * hookBaseR));
 
-  // 円錐底面の中心 Y 座標：リム上端付近（底面の下半分がリム外側面に、上半分がリム上面より上に乗る）
-  const baseCenterY = thickness;
+  // 縦方向：底面がリムの Y 範囲内に収まるよう中央付近に配置
+  //   hookBaseR が thickness/2 を超える場合は端まで寄せる
+  let baseCenterY = thickness / 2;
+  if (hookBaseR < thickness / 2) {
+    baseCenterY = thickness / 2;  // リム中央
+  } else {
+    baseCenterY = hookBaseR;       // 下端を Y=0 に寄せる
+  }
 
   for (let i = 0; i < count; i++) {
     const angle = (i / count) * Math.PI * 2;

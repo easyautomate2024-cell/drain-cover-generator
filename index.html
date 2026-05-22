@@ -290,6 +290,46 @@
     </div>
   </div>
 
+  <div>
+    <div class="section-title">中央凸（オプション）</div>
+    <div class="param-group">
+      <div class="param-row" style="flex-direction: row; align-items: center; gap: 8px;">
+        <input type="checkbox" id="bumpOn" style="accent-color: #e94560;">
+        <label for="bumpOn" style="cursor: pointer;">中央凸を有効化</label>
+      </div>
+      <div class="param-row">
+        <label>中央凸 直径 (mm) <span id="val-bumpD">25</span></label>
+        <input type="range" id="bumpD" min="5" max="100" value="25" step="1">
+      </div>
+      <div class="param-row">
+        <label>中央凸 高さ (mm) <span id="val-bumpH">8</span></label>
+        <input type="range" id="bumpH" min="1" max="50" value="8" step="0.5">
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">外周フック（ネット引っかけ）</div>
+    <div class="param-group">
+      <div class="param-row" style="flex-direction: row; align-items: center; gap: 8px;">
+        <input type="checkbox" id="hooksOn" style="accent-color: #e94560;">
+        <label for="hooksOn" style="cursor: pointer;">フックを有効化</label>
+      </div>
+      <div class="param-row">
+        <label>フック数 <span id="val-hookCount">8</span></label>
+        <input type="range" id="hookCount" min="3" max="36" value="8" step="1">
+      </div>
+      <div class="param-row">
+        <label>フック高さ (mm) <span id="val-hookH">3</span></label>
+        <input type="range" id="hookH" min="1" max="15" value="3" step="0.5">
+      </div>
+      <div class="param-row">
+        <label>フック基底直径 (mm) <span id="val-hookD">3</span></label>
+        <input type="range" id="hookD" min="1" max="10" value="3" step="0.5">
+      </div>
+    </div>
+  </div>
+
   <div id="bbox">
     <div class="bbox-title">📦 バウンディングボックス</div>
     <div class="bbox-row"><span>幅 (X)</span><span class="bbox-val" id="bb-x">100.0 mm</span></div>
@@ -517,6 +557,184 @@ const matInner = new THREE.MeshPhongMaterial({
 });
 
 // ============================================================
+//  メッシュ穴あき円盤の構築（凹底面・凸天面 共通）
+// ============================================================
+function buildMeshDisk(radius, thick, topY, barW, slotSize, material) {
+  const shape = new THREE.Shape();
+  shape.absarc(0, 0, radius, 0, Math.PI * 2, false);
+
+  const pitch      = barW + slotSize;
+  const halfSlot   = slotSize / 2;
+  const maxCornerR = radius - barW;
+
+  if (maxCornerR > 0) {
+    const gridN = Math.ceil(radius * 2 / pitch) + 2;
+    const start = -Math.floor(gridN / 2) * pitch;
+
+    for (let i = 0; i < gridN; i++) {
+      for (let j = 0; j < gridN; j++) {
+        const cx = start + i * pitch;
+        const cy = start + j * pitch;
+        const farX = Math.abs(cx) + halfSlot;
+        const farY = Math.abs(cy) + halfSlot;
+        if (Math.sqrt(farX * farX + farY * farY) > maxCornerR) continue;
+
+        const slot = new THREE.Path();
+        slot.moveTo(cx - halfSlot, cy - halfSlot);
+        slot.lineTo(cx - halfSlot, cy + halfSlot);
+        slot.lineTo(cx + halfSlot, cy + halfSlot);
+        slot.lineTo(cx + halfSlot, cy - halfSlot);
+        slot.lineTo(cx - halfSlot, cy - halfSlot);
+        shape.holes.push(slot);
+      }
+    }
+  }
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: thick, bevelEnabled: false, curveSegments: 64,
+  });
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, topY - thick, 0);
+  meshGroup.add(new THREE.Mesh(geo, material));
+}
+
+// ============================================================
+//  中央凸（オプション）の構築
+// ============================================================
+function buildCenterBump(bumpR, bumpH, baseY, barW, slotSize, meshOn) {
+  const wallThick = barW;
+  const innerR    = Math.max(0.5, bumpR - wallThick);
+
+  if (bumpR < 1 || bumpH < 0.5) return;
+
+  if (meshOn && innerR > 0.5 && (barW + slotSize) > 0.1) {
+    // メッシュ天面（薄い円盤）
+    const topCapThick = Math.max(0.8, barW * 0.6);
+    const wallH = Math.max(0, bumpH - topCapThick);
+
+    // 側壁ケージ
+    if (wallH > 0.1) {
+      buildCageWall(bumpR, innerR, baseY, baseY + wallH, barW, slotSize);
+    }
+
+    // 天面メッシュ
+    buildMeshDisk(bumpR, topCapThick, baseY + bumpH, barW, slotSize, matInner);
+  } else {
+    // ソリッド円柱（メッシュOFF or 内径が確保できない場合）
+    const geo = new THREE.CylinderGeometry(bumpR, bumpR, bumpH, 64);
+    geo.translate(0, baseY + bumpH / 2, 0);
+    meshGroup.add(new THREE.Mesh(geo, matOuter));
+  }
+}
+
+// ============================================================
+//  ケージ壁の構築（横リブ + 縦バー）
+// ============================================================
+function buildCageWall(outerR, innerR, yBottom, yTop, barW, slotSize) {
+  const wallH = yTop - yBottom;
+  if (innerR < 0.5 || wallH < 0.1) return;
+
+  const avgR    = (outerR + innerR) / 2;
+  const circ    = 2 * Math.PI * avgR;
+  const numCols = Math.max(3, Math.round(circ / (barW + slotSize)));
+  const colAng  = (2 * Math.PI) / numCols;
+  const barAng  = Math.min(barW / avgR, colAng * 0.9);
+
+  let numRows = Math.floor((wallH - barW) / (slotSize + barW));
+  let slotH   = 0;
+  if (numRows > 0) {
+    slotH = (wallH - (numRows + 1) * barW) / numRows;
+  }
+
+  // numRows = 0 → 全高さソリッドリング
+  if (numRows <= 0) {
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, outerR, 0, Math.PI * 2, false);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: wallH, bevelEnabled: false, curveSegments: 64,
+    });
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0, yBottom, 0);
+    meshGroup.add(new THREE.Mesh(geo, matOuter));
+    return;
+  }
+
+  // 水平リブ（× numRows + 1）
+  for (let r = 0; r <= numRows; r++) {
+    const ribBottomY = yBottom + r * (barW + slotH);
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, outerR, 0, Math.PI * 2, false);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: barW, bevelEnabled: false, curveSegments: 64,
+    });
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0, ribBottomY, 0);
+    meshGroup.add(new THREE.Mesh(geo, matOuter));
+  }
+
+  // 垂直バー（× numRows × numCols）
+  if (slotH > 0) {
+    for (let row = 0; row < numRows; row++) {
+      const barBottomY = yBottom + (row + 1) * barW + row * slotH;
+      for (let col = 0; col < numCols; col++) {
+        const a0 = col * colAng;
+        const a1 = a0 + barAng;
+
+        const wedge = new THREE.Shape();
+        wedge.moveTo(outerR * Math.cos(a0), outerR * Math.sin(a0));
+        wedge.absarc(0, 0, outerR, a0, a1, false);
+        wedge.lineTo(innerR * Math.cos(a1), innerR * Math.sin(a1));
+        wedge.absarc(0, 0, innerR, a1, a0, true);
+        wedge.closePath();
+
+        const geo = new THREE.ExtrudeGeometry(wedge, {
+          depth: slotH, bevelEnabled: false, curveSegments: 8,
+        });
+        geo.rotateX(-Math.PI / 2);
+        geo.translate(0, barBottomY, 0);
+        meshGroup.add(new THREE.Mesh(geo, matOuter));
+      }
+    }
+  }
+}
+
+// ============================================================
+//  外周フック（尖った突起・放射方向）の構築
+// ============================================================
+function buildHooks(outerR, holeR, thickness, count, hookH, hookBaseR) {
+  if (count < 1 || hookH < 0.1 || hookBaseR < 0.1) return;
+
+  // フックの根元（円錐底面）の半径位置 = リムの外径
+  // 円錐は径方向に水平に伸び、頂点が外側を向く
+  const placeR = outerR;
+
+  // 円錐底面の中心 Y 座標：リム上端付近（底面の下半分がリム外側面に、上半分がリム上面より上に乗る）
+  const baseCenterY = thickness;
+
+  for (let i = 0; i < count; i++) {
+    const angle = (i / count) * Math.PI * 2;
+
+    const cone = new THREE.ConeGeometry(hookBaseR, hookH, 16);
+    // ConeGeometry のデフォルト軸（+Y）を +X 軸（径方向）に倒す
+    cone.rotateZ(-Math.PI / 2);
+    // 軸が +X になった状態で、底面が X=placeR、Y=baseCenterY、Z=0 に来るよう移動
+    cone.translate(placeR + hookH / 2, baseCenterY, 0);
+    // Y 軸回りに回転して周方向の位置を決定
+    cone.rotateY(angle);
+
+    meshGroup.add(new THREE.Mesh(cone, matOuter));
+  }
+}
+
+// ============================================================
 //  側壁メッシュ（ケージ状）の構築
 // ============================================================
 function buildSideMesh(holeR, holeDepth, barW, slotSize, topY) {
@@ -715,6 +933,24 @@ function buildMesh() {
     }
   }
 
+  // -- 中央凸（オプション）--
+  const bumpOn = document.getElementById('bumpOn').checked;
+  if (bumpOn) {
+    const bumpR = parseFloat(document.getElementById('bumpD').value) / 2;
+    const bumpH = parseFloat(document.getElementById('bumpH').value);
+    // 凸の底＝凹みの内側底（水が溜まる面）= bottomTopY
+    buildCenterBump(bumpR, bumpH, bottomTopY, barW, slotSize, meshOn);
+  }
+
+  // -- 外周フック（ネット引っかけ用突起）--
+  const hooksOn = document.getElementById('hooksOn').checked;
+  if (hooksOn) {
+    const hookCount = parseInt(document.getElementById('hookCount').value);
+    const hookH     = parseFloat(document.getElementById('hookH').value);
+    const hookBaseR = parseFloat(document.getElementById('hookD').value) / 2;
+    buildHooks(outerR, holeR, thickness, hookCount, hookH, hookBaseR);
+  }
+
   // -- バウンディングボックス --
   const bb = new THREE.Box3().setFromObject(meshGroup);
   bboxHelper = new THREE.Box3Helper(bb, 0x2ecc71);
@@ -730,13 +966,16 @@ function buildMesh() {
 // ============================================================
 //  スライダー イベント
 // ============================================================
-['outerD', 'thickness', 'holeD', 'holeDepth', 'barW', 'slotSize'].forEach(id => {
+['outerD', 'thickness', 'holeD', 'holeDepth', 'barW', 'slotSize',
+ 'bumpD', 'bumpH', 'hookCount', 'hookH', 'hookD'].forEach(id => {
   const el    = document.getElementById(id);
   const valEl = document.getElementById('val-' + id);
   el.addEventListener('input', () => { valEl.textContent = el.value; buildMesh(); });
 });
 
-document.getElementById('meshOn').addEventListener('change', buildMesh);
+document.getElementById('meshOn') .addEventListener('change', buildMesh);
+document.getElementById('bumpOn') .addEventListener('change', buildMesh);
+document.getElementById('hooksOn').addEventListener('change', buildMesh);
 
 document.getElementById('btn-update').addEventListener('click', buildMesh);
 

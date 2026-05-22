@@ -566,6 +566,7 @@ function buildMeshDisk(radius, thick, topY, barW, slotSize, material) {
   const pitch      = barW + slotSize;
   const halfSlot   = slotSize / 2;
   const maxCornerR = radius - barW;
+  const slotInfo   = [];
 
   if (maxCornerR > 0) {
     const gridN = Math.ceil(radius * 2 / pitch) + 2;
@@ -586,6 +587,7 @@ function buildMeshDisk(radius, thick, topY, barW, slotSize, material) {
         slot.lineTo(cx + halfSlot, cy - halfSlot);
         slot.lineTo(cx - halfSlot, cy - halfSlot);
         shape.holes.push(slot);
+        slotInfo.push({ cx, cy, halfSlot });
       }
     }
   }
@@ -595,7 +597,16 @@ function buildMeshDisk(radius, thick, topY, barW, slotSize, material) {
   });
   geo.rotateX(-Math.PI / 2);
   geo.translate(0, topY - thick, 0);
-  meshGroup.add(new THREE.Mesh(geo, material));
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.userData.csgRebuild = {
+    type: 'meshDisk',
+    outerR: radius,
+    centerHoleR: 0,
+    thickness: thick,
+    topY: topY,
+    slots: slotInfo,
+  };
+  meshGroup.add(mesh);
 }
 
 // ============================================================
@@ -904,7 +915,8 @@ function buildMesh() {
     bottomShape.holes.push(bumpHole);
   }
 
-  // メッシュ穴グリッド
+  // メッシュ穴グリッド（位置情報も userData 用に蓄積）
+  const slotInfo = [];  // [{cx, cy, halfSlot}] for STL export reconstruction
   if (meshOn && (barW + slotSize) > 0.1) {
     const pitch      = barW + slotSize;
     const halfSlot   = slotSize / 2;
@@ -938,6 +950,7 @@ function buildMesh() {
         slot.lineTo(cx + halfSlot, cy - halfSlot);
         slot.lineTo(cx - halfSlot, cy - halfSlot);
         bottomShape.holes.push(slot);
+        slotInfo.push({ cx, cy, halfSlot });
       }
     }
   }
@@ -949,7 +962,18 @@ function buildMesh() {
   });
   bottomGeo.rotateX(-Math.PI / 2);
   bottomGeo.translate(0, bottomTopY - bottomThick, 0);
-  meshGroup.add(new THREE.Mesh(bottomGeo, matInner));
+  const bottomMesh = new THREE.Mesh(bottomGeo, matInner);
+  // STL エクスポート時に Manifold で再構築できる情報を userData に
+  bottomMesh.userData.csgRebuild = {
+    type: 'meshDisk',
+    outerR: bottomR,
+    centerHoleR: doBumpClip ? bumpR_clip : 0,
+    thickness: bottomThick,
+    topY: bottomTopY,
+    slots: slotInfo,
+    material: 'inner',
+  };
+  meshGroup.add(bottomMesh);
 
   // -- 凹み側壁 --
   if (holeDepth > 0.01) {
@@ -1200,12 +1224,82 @@ async function exportSTLClean() {
 
   meshGroup.updateMatrixWorld(true);
 
+  // CSG プリミティブからメッシュディスク（外円 - 中央穴 - スロット箱）を作る
+  // Three.js ExtrudeGeometry は複数の穴があると非マニフォールドを生成するため、
+  // STL 出力時のみ Manifold ベースで再構築する
+  function buildMeshDiskManifold(spec) {
+    // disk: cylinder(outerR, thickness) at topY (top surface at topY)
+    const r = spec.outerR;
+    const t = spec.thickness;
+    const yTop = spec.topY;
+    const yBot = yTop - t;
+    const cylSegs = 64;
+
+    // ベース円柱（中心は Y軸方向で yBot..yTop）
+    let body = Manifold.cylinder(t, r, r, cylSegs, false);
+    // Manifold.cylinder は (0,0,0) を底面中心として +Z 方向に伸びる。Y軸基準にするため Z→Y rot。
+    body = body.rotate([90, 0, 0]).translate([0, yBot + t, 0]);
+    // 上記の rotate+translate で正しい Y 位置に
+    // しかし Manifold.cylinder は Z+ 方向に伸びるので、rotate([90,0,0])で +Z → -Y になってしまう。
+    // 代わりに +Z を +Y に持ってくる方向の回転 (-90度 around X)
+    // Manifold の rotate は degrees。-90 度 around X。
+
+    // 仕切り直し
+    body.delete();
+    body = Manifold.cylinder(t, r, r, cylSegs, false)
+      .rotate([-90, 0, 0])             // +Z → +Y
+      .translate([0, yBot, 0]);        // 底面が yBot に
+
+    // 中央穴を引く
+    if (spec.centerHoleR > 0 && spec.centerHoleR < r) {
+      const eps = 0.1;  // 確実に貫通させる
+      const hole = Manifold.cylinder(t + 2*eps, spec.centerHoleR, spec.centerHoleR, cylSegs, false)
+        .rotate([-90, 0, 0])
+        .translate([0, yBot - eps, 0]);
+      const newBody = Manifold.difference(body, hole);
+      body.delete(); hole.delete();
+      body = newBody;
+    }
+
+    // スロット穴を引く（cube プリミティブを各位置に配置して difference）
+    const eps = 0.1;
+    const boxes = [];
+    for (const s of spec.slots) {
+      const size = s.halfSlot * 2;
+      const box = Manifold.cube([size, t + 2*eps, size], true)  // 中心配置
+        .translate([s.cx, (yBot + yTop) / 2, s.cy]);
+      boxes.push(box);
+    }
+    if (boxes.length > 0) {
+      // 全 box を union してから一括 difference の方が早い
+      const allHoles = Manifold.union(boxes);
+      boxes.forEach(b => b.delete());
+      const newBody = Manifold.difference(body, allHoles);
+      body.delete(); allHoles.delete();
+      body = newBody;
+    }
+
+    return body;
+  }
+
   // 各 Three.js メッシュを Manifold に変換
   const manifolds = [];
   const v = new THREE.Vector3();
 
   meshGroup.traverse((obj) => {
     if (!obj.isMesh) return;
+
+    // CSG 再構築が必要なメッシュは Manifold プリミティブで作り直す
+    if (obj.userData && obj.userData.csgRebuild && obj.userData.csgRebuild.type === 'meshDisk') {
+      try {
+        const mf = buildMeshDiskManifold(obj.userData.csgRebuild);
+        manifolds.push(mf);
+      } catch (e) {
+        console.warn('CSG rebuild 失敗 (meshDisk):', e.message || e);
+      }
+      return;
+    }
+
     const geo = obj.geometry;
     if (!geo || !geo.attributes.position) return;
     const pos = geo.attributes.position;

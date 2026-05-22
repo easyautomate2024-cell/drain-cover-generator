@@ -680,10 +680,12 @@ function buildCageWall(outerR, innerR, yBottom, yTop, barW, slotSize) {
     meshGroup.add(new THREE.Mesh(geo, matOuter));
   }
 
-  // 垂直バー（× numRows × numCols）
+  // 垂直バー（× numRows × numCols）：上下方向に OVL だけ伸ばして両端のリブと重ねる
+  const OVL = 0.05;
   if (slotH > 0) {
     for (let row = 0; row < numRows; row++) {
-      const barBottomY = yBottom + (row + 1) * barW + row * slotH;
+      const barBottomY = yBottom + (row + 1) * barW + row * slotH - OVL;
+      const barH = slotH + 2 * OVL;
       for (let col = 0; col < numCols; col++) {
         const a0 = col * colAng;
         const a1 = a0 + barAng;
@@ -696,7 +698,7 @@ function buildCageWall(outerR, innerR, yBottom, yTop, barW, slotSize) {
         wedge.closePath();
 
         const geo = new THREE.ExtrudeGeometry(wedge, {
-          depth: slotH, bevelEnabled: false, curveSegments: 8,
+          depth: barH, bevelEnabled: false, curveSegments: 8,
         });
         geo.rotateX(-Math.PI / 2);
         geo.translate(0, barBottomY, 0);
@@ -713,11 +715,15 @@ function buildHooks(outerR, holeR, thickness, count, hookH, hookBaseR) {
   if (count < 1 || hookH < 0.1 || hookBaseR < 0.1) return;
 
   // 底面全体が rim 材料内に密着するよう配置:
-  //   底面コーナー（半径方向の最遠点）がリム外周上にちょうど接する位置に底面中心を置く
-  //   → placeR² + hookBaseR² = outerR²
-  //   → placeR = sqrt(outerR² - hookBaseR²)
-  //   こうすることで底面の全周がリムの円柱外周にぴったり接する
-  const placeR = Math.sqrt(Math.max(0, outerR * outerR - hookBaseR * hookBaseR));
+  //   底面コーナー（半径方向の最遠点）がリム外周より少し内側に来るよう、
+  //   底面中心を embed 量だけ内側に押し込む
+  //   → placeR = sqrt(outerR² - hookBaseR²) - embed
+  //   embed の分だけ円錐がリム内部に重なり、非多様体（同一面）を回避できる
+  const embed = 0.3;
+  const placeR = Math.max(
+    holeR + 0.1,
+    Math.sqrt(Math.max(0, outerR * outerR - hookBaseR * hookBaseR)) - embed
+  );
 
   // 縦方向：底面がリムの Y 範囲内に収まるよう中央付近に配置
   //   hookBaseR が thickness/2 を超える場合は端まで寄せる
@@ -806,9 +812,12 @@ function buildSideMesh(holeR, holeDepth, barW, slotSize, topY) {
   }
 
   // --- 垂直バー（ウェッジ形状）× numRows × numCols ---
+  //   上下方向に OVL だけ伸ばして両端のリブと重ねる（非多様体回避）
+  const OVL_SIDE = 0.05;
   if (slotH > 0) {
     for (let row = 0; row < numRows; row++) {
-      const barBottomY = wallBottomY + (row + 1) * barW + row * slotH;
+      const barBottomY = wallBottomY + (row + 1) * barW + row * slotH - OVL_SIDE;
+      const barH       = slotH + 2 * OVL_SIDE;
 
       for (let col = 0; col < numCols; col++) {
         const a0 = col * colAng;
@@ -822,7 +831,7 @@ function buildSideMesh(holeR, holeDepth, barW, slotSize, topY) {
         wedge.closePath();
 
         const geo = new THREE.ExtrudeGeometry(wedge, {
-          depth: slotH, bevelEnabled: false, curveSegments: 8,
+          depth: barH, bevelEnabled: false, curveSegments: 8,
         });
         geo.rotateX(-Math.PI / 2);
         geo.translate(0, barBottomY, 0);
@@ -877,14 +886,20 @@ function buildMesh() {
   const barW     = parseFloat(document.getElementById('barW').value);
   const slotSize = parseFloat(document.getElementById('slotSize').value);
 
+  // STL 非多様体回避用の微小オーバーラップ
+  const EPS = 0.05;
+
+  // 底面の外径は holeR + EPS で、リムと径方向にわずかに重ねる
+  const bottomR = holeR + EPS;
+
   if (meshOn && (barW + slotSize) > 0.1) {
     // 円形 + 格子穴の Shape を作成して押し出し
     const bottomShape = new THREE.Shape();
-    bottomShape.absarc(0, 0, holeR, 0, Math.PI * 2, false);
+    bottomShape.absarc(0, 0, bottomR, 0, Math.PI * 2, false);
 
     const pitch       = barW + slotSize;
     const halfSlot    = slotSize / 2;
-    const maxCornerR  = holeR - barW;   // 穴の角がここより内側でないとダメ
+    const maxCornerR  = holeR - barW;   // 穴の角がここより内側でないとダメ（穴のクリッピングは元の holeR 基準）
 
     // グリッドの中心を原点に合わせる
     const gridN = Math.ceil(holeR * 2 / pitch) + 2;
@@ -923,7 +938,7 @@ function buildMesh() {
     meshGroup.add(new THREE.Mesh(bottomGeo, matInner));
   } else {
     // ソリッド円盤
-    const bottomGeo = new THREE.CylinderGeometry(holeR, holeR, bottomThick, segs);
+    const bottomGeo = new THREE.CylinderGeometry(bottomR, bottomR, bottomThick, segs);
     bottomGeo.translate(0, (bottomTopY + bottomBottomY) / 2, 0);
     meshGroup.add(new THREE.Mesh(bottomGeo, matInner));
   }
@@ -931,14 +946,33 @@ function buildMesh() {
   // -- 凹み側壁 --
   if (holeDepth > 0.01) {
     if (meshOn && (barW + slotSize) > 0.1) {
-      // ケージ状メッシュ側壁
-      buildSideMesh(holeR, holeDepth, barW, slotSize, thickness);
+      // ケージ状メッシュ側壁（外径を EPS だけ広げてリムに食い込ませる）
+      buildSideMesh(holeR + EPS, holeDepth, barW, slotSize, thickness);
     } else {
-      // ソリッドなオープンシリンダー
-      const wallCenterY = thickness - holeDepth / 2;
-      const wallGeo = new THREE.CylinderGeometry(holeR, holeR, holeDepth, segs, 1, true);
-      wallGeo.translate(0, wallCenterY, 0);
-      meshGroup.add(new THREE.Mesh(wallGeo, matOuter));
+      // ソリッドの場合：
+      //   浅い凹み (holeDepth <= thickness): リムの内側面が壁を兼ねるので追加不要
+      //   深い凹み (holeDepth >  thickness): リム下の管をクローズドチューブとして追加
+      if (holeDepth > thickness) {
+        const tubeWallT  = Math.max(barW, 1);   // 管の壁厚
+        const tubeOuterR = holeR + tubeWallT;
+        const tubeInnerR = holeR;
+        const tubeTopY    = EPS;                            // リム下端 (Y=0) に EPS 食い込み
+        const tubeBottomY = thickness - holeDepth;          // 凹み底
+        const tubeH       = tubeTopY - tubeBottomY;
+
+        const tubeShape = new THREE.Shape();
+        tubeShape.absarc(0, 0, tubeOuterR, 0, Math.PI * 2, false);
+        const tubeHole = new THREE.Path();
+        tubeHole.absarc(0, 0, tubeInnerR, 0, Math.PI * 2, true);
+        tubeShape.holes.push(tubeHole);
+
+        const tubeGeo = new THREE.ExtrudeGeometry(tubeShape, {
+          depth: tubeH, bevelEnabled: false, curveSegments: segs,
+        });
+        tubeGeo.rotateX(-Math.PI / 2);
+        tubeGeo.translate(0, tubeBottomY, 0);
+        meshGroup.add(new THREE.Mesh(tubeGeo, matOuter));
+      }
     }
   }
 
@@ -947,8 +981,8 @@ function buildMesh() {
   if (bumpOn) {
     const bumpR = parseFloat(document.getElementById('bumpD').value) / 2;
     const bumpH = parseFloat(document.getElementById('bumpH').value);
-    // 凸の底＝凹みの内側底（水が溜まる面）= bottomTopY
-    buildCenterBump(bumpR, bumpH, bottomTopY, barW, slotSize, meshOn);
+    // 凸の底＝凹みの内側底（水が溜まる面）から EPS だけ下に食い込ませる
+    buildCenterBump(bumpR, bumpH + EPS, bottomTopY - EPS, barW, slotSize, meshOn);
   }
 
   // -- 外周フック（ネット引っかけ用突起）--

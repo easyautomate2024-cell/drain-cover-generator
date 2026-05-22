@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>排水溝蓋 STL ジェネレーター</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #1a1a2e;
+      color: #eee;
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+
+    /* ========== サイドパネル ========== */
+    #panel {
+      width: 260px;
+      min-width: 260px;
+      background: #16213e;
+      border-right: 1px solid #0f3460;
+      display: flex;
+      flex-direction: column;
+      padding: 20px 16px;
+      gap: 16px;
+      overflow-y: auto;
+    }
+
+    #panel h1 {
+      font-size: 15px;
+      font-weight: 700;
+      color: #e94560;
+      letter-spacing: 1px;
+      text-align: center;
+      padding-bottom: 12px;
+      border-bottom: 1px solid #0f3460;
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: #7f8c8d;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      margin-bottom: 4px;
+    }
+
+    .param-group { display: flex; flex-direction: column; gap: 10px; }
+
+    .param-row { display: flex; flex-direction: column; gap: 4px; }
+
+    .param-row label {
+      font-size: 12px;
+      color: #bdc3c7;
+      display: flex;
+      justify-content: space-between;
+    }
+
+    .param-row label span { color: #e94560; font-weight: 600; }
+
+    .param-row input[type="range"] {
+      width: 100%;
+      accent-color: #e94560;
+      cursor: pointer;
+    }
+
+    /* ========== バウンディングボックス ========== */
+    #bbox {
+      background: #0f3460;
+      border-radius: 6px;
+      padding: 10px 12px;
+      font-size: 12px;
+      line-height: 1.8;
+    }
+    #bbox .bbox-title {
+      font-size: 11px; font-weight: 600; color: #7f8c8d;
+      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
+    }
+    #bbox .bbox-row { display: flex; justify-content: space-between; }
+    #bbox .bbox-val { color: #2ecc71; font-weight: 600; }
+
+    /* ========== ボタン ========== */
+    button {
+      width: 100%; padding: 10px; border: none;
+      border-radius: 6px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: opacity 0.2s;
+    }
+    button:hover { opacity: 0.85; }
+    #btn-update   { background: #0f3460; color: #eee; }
+    #btn-download { background: #e94560; color: #fff; }
+
+    /* ========== 操作ガイド ========== */
+    #guide {
+      font-size: 11px; color: #7f8c8d; line-height: 1.7;
+      border-top: 1px solid #0f3460; padding-top: 10px;
+    }
+
+    /* ========== 3Dビューワー ========== */
+    #viewer { flex: 1; position: relative; }
+    #viewer canvas { display: block; }
+
+    #axis-label {
+      position: absolute; bottom: 16px; left: 16px;
+      font-size: 11px; color: #7f8c8d; pointer-events: none; line-height: 1.6;
+    }
+    #status {
+      position: absolute; top: 16px; left: 16px;
+      font-size: 12px; color: #2ecc71; pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+
+<!-- ========== サイドパネル ========== -->
+<div id="panel">
+  <h1>🛁 排水溝蓋 Generator</h1>
+
+  <div>
+    <div class="section-title">蓋の基本寸法</div>
+    <div class="param-group">
+      <div class="param-row">
+        <label>外径 (mm) <span id="val-outerD">100</span></label>
+        <input type="range" id="outerD" min="50" max="200" value="100" step="1">
+      </div>
+      <div class="param-row">
+        <label>厚み (mm) <span id="val-thickness">5</span></label>
+        <input type="range" id="thickness" min="2" max="20" value="5" step="0.5">
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">凹み寸法</div>
+    <div class="param-group">
+      <div class="param-row">
+        <label>凹み直径 (mm) <span id="val-holeD">60</span></label>
+        <input type="range" id="holeD" min="10" max="180" value="60" step="1">
+      </div>
+      <div class="param-row">
+        <label>凹み深さ (mm) <span id="val-holeDepth">3</span></label>
+        <input type="range" id="holeDepth" min="0.5" max="70" value="3" step="0.5">
+      </div>
+    </div>
+  </div>
+
+  <div>
+    <div class="section-title">排水メッシュ</div>
+    <div class="param-group">
+      <div class="param-row">
+        <label>桟の幅 (mm) <span id="val-barW">1.5</span></label>
+        <input type="range" id="barW" min="0.5" max="10" value="1.5" step="0.1">
+      </div>
+      <div class="param-row">
+        <label>穴のサイズ (mm) <span id="val-slotSize">8</span></label>
+        <input type="range" id="slotSize" min="1" max="40" value="8" step="0.5">
+      </div>
+      <div class="param-row" style="flex-direction: row; align-items: center; gap: 8px;">
+        <input type="checkbox" id="meshOn" checked style="accent-color: #e94560;">
+        <label for="meshOn" style="cursor: pointer;">メッシュを有効化</label>
+      </div>
+    </div>
+  </div>
+
+  <div id="bbox">
+    <div class="bbox-title">📦 バウンディングボックス</div>
+    <div class="bbox-row"><span>幅 (X)</span><span class="bbox-val" id="bb-x">100.0 mm</span></div>
+    <div class="bbox-row"><span>奥行 (Y)</span><span class="bbox-val" id="bb-y">100.0 mm</span></div>
+    <div class="bbox-row"><span>高さ (Z)</span><span class="bbox-val" id="bb-z">5.0 mm</span></div>
+  </div>
+
+  <button id="btn-update">🔄 形状を更新</button>
+  <button id="btn-download">⬇ STL ダウンロード（Step4で実装）</button>
+
+  <div id="guide">
+    <b>マウス操作</b><br>
+    🖱 左ドラッグ：回転<br>
+    🖱 右ドラッグ：移動<br>
+    🖱 ホイール：ズーム
+  </div>
+</div>
+
+<!-- ========== 3Dビューワー ========== -->
+<div id="viewer">
+  <div id="status">✅ 準備完了</div>
+  <div id="axis-label">赤: X軸　緑: Y軸　青: Z軸</div>
+</div>
+
+<!-- Three.js r128 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script>
+'use strict';
+
+// ============================================================
+//  シンプルな OrbitControls
+// ============================================================
+function SimpleOrbitControls(camera, domElement) {
+  this.camera     = camera;
+  this.domElement = domElement;
+  this.target     = new THREE.Vector3(0, 0, 0);
+
+  let isDragging  = false;
+  let isPanning   = false;
+  let lastX = 0, lastY = 0;
+  const scope = this;
+
+  domElement.addEventListener('mousedown', (e) => {
+    lastX = e.clientX; lastY = e.clientY;
+    if (e.button === 0) isDragging = true;
+    if (e.button === 2) isPanning  = true;
+    e.preventDefault();
+  });
+
+  document.addEventListener('mouseup', () => { isDragging = false; isPanning = false; });
+
+  document.addEventListener('mousemove', (e) => {
+    const dx = e.clientX - lastX;
+    const dy = e.clientY - lastY;
+    lastX = e.clientX; lastY = e.clientY;
+
+    if (isDragging) {
+      // 回転
+      const offset = new THREE.Vector3().subVectors(camera.position, scope.target);
+      const radius = offset.length();
+      let theta = Math.atan2(offset.x, offset.z);
+      let phi   = Math.acos(Math.max(-1, Math.min(1, offset.y / radius)));
+
+      theta -= dx * 0.005;
+      phi   -= dy * 0.005;
+      phi    = Math.max(0.05, Math.min(Math.PI - 0.05, phi));
+
+      camera.position.set(
+        scope.target.x + radius * Math.sin(phi) * Math.sin(theta),
+        scope.target.y + radius * Math.cos(phi),
+        scope.target.z + radius * Math.sin(phi) * Math.cos(theta)
+      );
+      camera.lookAt(scope.target);
+    }
+
+    if (isPanning) {
+      // 平行移動
+      const right = new THREE.Vector3();
+      const up    = new THREE.Vector3();
+      camera.getWorldDirection(new THREE.Vector3()); // dummy
+      right.crossVectors(camera.getWorldDirection(new THREE.Vector3()), camera.up).normalize();
+      up.copy(camera.up);
+      const panSpeed = camera.position.distanceTo(scope.target) * 0.001;
+      scope.target.addScaledVector(right, -dx * panSpeed);
+      scope.target.addScaledVector(up,     dy * panSpeed);
+      camera.position.addScaledVector(right, -dx * panSpeed);
+      camera.position.addScaledVector(up,     dy * panSpeed);
+      camera.lookAt(scope.target);
+    }
+  });
+
+  domElement.addEventListener('wheel', (e) => {
+    const factor = e.deltaY > 0 ? 1.1 : 0.9;
+    const offset = new THREE.Vector3().subVectors(camera.position, scope.target);
+    offset.multiplyScalar(factor);
+    camera.position.copy(scope.target).add(offset);
+    camera.lookAt(scope.target);
+  }, { passive: true });
+
+  domElement.addEventListener('contextmenu', (e) => e.preventDefault());
+}
+
+// ============================================================
+//  シーンセットアップ
+// ============================================================
+const viewer   = document.getElementById('viewer');
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setPixelRatio(window.devicePixelRatio);
+renderer.shadowMap.enabled = true;
+viewer.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+scene.background = new THREE.Color(0x1a1a2e);
+
+// カメラ（位置を先に設定）
+const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
+camera.position.set(120, 100, 170);
+camera.lookAt(0, 5, 0);
+
+// OrbitControls
+const orbitControls = new SimpleOrbitControls(camera, renderer.domElement);
+orbitControls.target.set(0, 5, 0);
+
+// ライティング
+scene.add(new THREE.AmbientLight(0xffffff, 0.6));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+dirLight.position.set(150, 200, 100);
+scene.add(dirLight);
+const fillLight = new THREE.DirectionalLight(0x8899ff, 0.3);
+fillLight.position.set(-100, -80, -100);
+scene.add(fillLight);
+
+// グリッド & 軸
+scene.add(new THREE.GridHelper(400, 40, 0x0f3460, 0x0f3460));
+const axesHelper = new THREE.AxesHelper(60);
+scene.add(axesHelper);
+
+// 中心軸（Y方向の長い軸 - 深い凹みでも参照しやすく）
+const centerAxisGeo = new THREE.BufferGeometry().setFromPoints([
+  new THREE.Vector3(0, -100, 0),
+  new THREE.Vector3(0,  100, 0)
+]);
+scene.add(new THREE.Line(centerAxisGeo, new THREE.LineBasicMaterial({ color: 0x2ecc71, opacity: 0.3, transparent: true })));
+
+// ============================================================
+//  形状グループ & マテリアル
+// ============================================================
+var meshGroup = new THREE.Group();
+scene.add(meshGroup);
+
+var bboxHelper = null;
+
+const matOuter = new THREE.MeshPhongMaterial({
+  color: 0x7788aa, specular: 0xffffff, shininess: 80, side: THREE.DoubleSide
+});
+const matInner = new THREE.MeshPhongMaterial({
+  color: 0x4488bb, specular: 0xffffff, shininess: 60, side: THREE.DoubleSide
+});
+
+// ============================================================
+//  側壁メッシュ（ケージ状）の構築
+// ============================================================
+function buildSideMesh(holeR, holeDepth, barW, slotSize, topY) {
+  const wallThick   = barW;                              // 壁の厚み = 桟の幅
+  const outerR      = holeR;                             // 壁の外側半径
+  const innerR      = Math.max(0.5, holeR - wallThick);  // 壁の内側半径
+  const wallBottomY = topY - holeDepth;                  // 壁の下端 Y
+  const wallH       = holeDepth;
+
+  if (innerR < 0.5) return;
+
+  // 周方向の分割
+  const avgR    = (outerR + innerR) / 2;
+  const circ    = 2 * Math.PI * avgR;
+  const numCols = Math.max(3, Math.round(circ / (barW + slotSize)));
+  const colAng  = (2 * Math.PI) / numCols;
+  const barAng  = Math.min(barW / avgR, colAng * 0.9);   // 桟が占める角度
+  // slotAng = colAng - barAng
+
+  // 縦方向の分割（リブ間に slot 行が入る）
+  // 配置: barW + (slotH + barW) × numRows = wallH
+  let numRows = Math.floor((wallH - barW) / (slotSize + barW));
+  let slotH   = 0;
+  if (numRows > 0) {
+    slotH = (wallH - (numRows + 1) * barW) / numRows;
+  }
+
+  // --- numRows = 0 → スロット行が入らない → 全高さソリッドリング ---
+  if (numRows <= 0) {
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, outerR, 0, Math.PI * 2, false);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: wallH, bevelEnabled: false, curveSegments: 64,
+    });
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0, wallBottomY, 0);
+    meshGroup.add(new THREE.Mesh(geo, matOuter));
+    return;
+  }
+
+  // --- 水平リブ（フルアニュラスリング）×（numRows + 1）---
+  for (let r = 0; r <= numRows; r++) {
+    const ribBottomY = wallBottomY + r * (barW + slotH);
+    const shape = new THREE.Shape();
+    shape.absarc(0, 0, outerR, 0, Math.PI * 2, false);
+    const hole = new THREE.Path();
+    hole.absarc(0, 0, innerR, 0, Math.PI * 2, true);
+    shape.holes.push(hole);
+
+    const geo = new THREE.ExtrudeGeometry(shape, {
+      depth: barW, bevelEnabled: false, curveSegments: 64,
+    });
+    geo.rotateX(-Math.PI / 2);
+    geo.translate(0, ribBottomY, 0);
+    meshGroup.add(new THREE.Mesh(geo, matOuter));
+  }
+
+  // --- 垂直バー（ウェッジ形状）× numRows × numCols ---
+  if (slotH > 0) {
+    for (let row = 0; row < numRows; row++) {
+      const barBottomY = wallBottomY + (row + 1) * barW + row * slotH;
+
+      for (let col = 0; col < numCols; col++) {
+        const a0 = col * colAng;
+        const a1 = a0 + barAng;
+
+        const wedge = new THREE.Shape();
+        wedge.moveTo(outerR * Math.cos(a0), outerR * Math.sin(a0));
+        wedge.absarc(0, 0, outerR, a0, a1, false);
+        wedge.lineTo(innerR * Math.cos(a1), innerR * Math.sin(a1));
+        wedge.absarc(0, 0, innerR, a1, a0, true);
+        wedge.closePath();
+
+        const geo = new THREE.ExtrudeGeometry(wedge, {
+          depth: slotH, bevelEnabled: false, curveSegments: 8,
+        });
+        geo.rotateX(-Math.PI / 2);
+        geo.translate(0, barBottomY, 0);
+        meshGroup.add(new THREE.Mesh(geo, matOuter));
+      }
+    }
+  }
+}
+
+// ============================================================
+//  形状生成
+// ============================================================
+function buildMesh() {
+  // 古いメッシュを削除
+  while (meshGroup.children.length) meshGroup.remove(meshGroup.children[0]);
+  if (bboxHelper) { scene.remove(bboxHelper); bboxHelper = null; }
+
+  const segs      = 64;
+  const outerR    = parseFloat(document.getElementById('outerD').value)    / 2;
+  const thickness = parseFloat(document.getElementById('thickness').value);
+  const holeR     = parseFloat(document.getElementById('holeD').value)     / 2;
+  const holeDepth = parseFloat(document.getElementById('holeDepth').value);
+
+  // 凹み底面の厚み（最低 1mm を確保）
+  // 浅い場合：厚み - 深さ（残った材料）
+  // 深い場合：固定 1mm（蓋の下にチューブ状に突き出る）
+  const naturalBottom = thickness - holeDepth;
+  const bottomThick   = Math.max(1, naturalBottom);
+
+  // -- 外周リング（ExtrudeGeometry で穴あきディスク）--
+  const ringShape = new THREE.Shape();
+  ringShape.absarc(0, 0, outerR, 0, Math.PI * 2, false);
+  const innerPath = new THREE.Path();
+  innerPath.absarc(0, 0, holeR, 0, Math.PI * 2, true);
+  ringShape.holes.push(innerPath);
+
+  const ringGeo = new THREE.ExtrudeGeometry(ringShape, {
+    depth: thickness,
+    bevelEnabled: false,
+    curveSegments: segs,
+  });
+  // ExtrudeGeometry は Z方向に伸びるので X軸-90°回転すると Y=0〜thickness になる
+  ringGeo.rotateX(-Math.PI / 2);
+  meshGroup.add(new THREE.Mesh(ringGeo, matOuter));
+
+  // -- 凹み底面（網目付き円盤 or ソリッド円盤）--
+  // 凹み内側の底（水が溜まる面）の Y 座標
+  const bottomTopY    = thickness - holeDepth;
+  const bottomBottomY = bottomTopY - bottomThick;
+
+  const meshOn   = document.getElementById('meshOn').checked;
+  const barW     = parseFloat(document.getElementById('barW').value);
+  const slotSize = parseFloat(document.getElementById('slotSize').value);
+
+  if (meshOn && (barW + slotSize) > 0.1) {
+    // 円形 + 格子穴の Shape を作成して押し出し
+    const bottomShape = new THREE.Shape();
+    bottomShape.absarc(0, 0, holeR, 0, Math.PI * 2, false);
+
+    const pitch       = barW + slotSize;
+    const halfSlot    = slotSize / 2;
+    const maxCornerR  = holeR - barW;   // 穴の角がここより内側でないとダメ
+
+    // グリッドの中心を原点に合わせる
+    const gridN = Math.ceil(holeR * 2 / pitch) + 2;
+    const start = -Math.floor(gridN / 2) * pitch;
+
+    for (let i = 0; i < gridN; i++) {
+      for (let j = 0; j < gridN; j++) {
+        const cx = start + i * pitch;
+        const cy = start + j * pitch;
+
+        // 穴の最遠コーナーが円内に収まるかチェック
+        const farX = Math.abs(cx) + halfSlot;
+        const farY = Math.abs(cy) + halfSlot;
+        if (Math.sqrt(farX * farX + farY * farY) > maxCornerR) continue;
+
+        // 角穴を Path として追加（時計回り = 穴）
+        const slot = new THREE.Path();
+        slot.moveTo(cx - halfSlot, cy - halfSlot);
+        slot.lineTo(cx - halfSlot, cy + halfSlot);
+        slot.lineTo(cx + halfSlot, cy + halfSlot);
+        slot.lineTo(cx + halfSlot, cy - halfSlot);
+        slot.lineTo(cx - halfSlot, cy - halfSlot);
+        bottomShape.holes.push(slot);
+      }
+    }
+
+    const bottomGeo = new THREE.ExtrudeGeometry(bottomShape, {
+      depth: bottomThick,
+      bevelEnabled: false,
+      curveSegments: segs,
+    });
+    // ExtrudeGeometry は +Z 方向に伸びるので回転 → +Y 方向に
+    bottomGeo.rotateX(-Math.PI / 2);
+    // 回転後の Y 範囲は [0, bottomThick]、トップが bottomTopY になるよう移動
+    bottomGeo.translate(0, bottomTopY - bottomThick, 0);
+    meshGroup.add(new THREE.Mesh(bottomGeo, matInner));
+  } else {
+    // ソリッド円盤
+    const bottomGeo = new THREE.CylinderGeometry(holeR, holeR, bottomThick, segs);
+    bottomGeo.translate(0, (bottomTopY + bottomBottomY) / 2, 0);
+    meshGroup.add(new THREE.Mesh(bottomGeo, matInner));
+  }
+
+  // -- 凹み側壁 --
+  if (holeDepth > 0.01) {
+    if (meshOn && (barW + slotSize) > 0.1) {
+      // ケージ状メッシュ側壁
+      buildSideMesh(holeR, holeDepth, barW, slotSize, thickness);
+    } else {
+      // ソリッドなオープンシリンダー
+      const wallCenterY = thickness - holeDepth / 2;
+      const wallGeo = new THREE.CylinderGeometry(holeR, holeR, holeDepth, segs, 1, true);
+      wallGeo.translate(0, wallCenterY, 0);
+      meshGroup.add(new THREE.Mesh(wallGeo, matOuter));
+    }
+  }
+
+  // -- バウンディングボックス --
+  const bb = new THREE.Box3().setFromObject(meshGroup);
+  bboxHelper = new THREE.Box3Helper(bb, 0x2ecc71);
+  scene.add(bboxHelper);
+
+  const size = new THREE.Vector3();
+  bb.getSize(size);
+  document.getElementById('bb-x').textContent = size.x.toFixed(1) + ' mm';
+  document.getElementById('bb-y').textContent = size.z.toFixed(1) + ' mm';
+  document.getElementById('bb-z').textContent = size.y.toFixed(1) + ' mm';
+}
+
+// ============================================================
+//  スライダー イベント
+// ============================================================
+['outerD', 'thickness', 'holeD', 'holeDepth', 'barW', 'slotSize'].forEach(id => {
+  const el    = document.getElementById(id);
+  const valEl = document.getElementById('val-' + id);
+  el.addEventListener('input', () => { valEl.textContent = el.value; buildMesh(); });
+});
+
+document.getElementById('meshOn').addEventListener('change', buildMesh);
+
+document.getElementById('btn-update').addEventListener('click', buildMesh);
+
+document.getElementById('btn-download').addEventListener('click', () => {
+  const s = document.getElementById('status');
+  s.textContent = '⚠️ STL出力は Step4 で実装します';
+  setTimeout(() => { s.textContent = '✅ 準備完了'; }, 2500);
+});
+
+// ============================================================
+//  リサイズ & アニメーションループ
+// ============================================================
+function onResize() {
+  const w = viewer.clientWidth;
+  const h = viewer.clientHeight;
+  if (w === 0 || h === 0) return;
+  renderer.setSize(w, h);
+  camera.aspect = w / h;
+  camera.updateProjectionMatrix();
+}
+
+window.addEventListener('resize', onResize);
+
+function animate() {
+  requestAnimationFrame(animate);
+  renderer.render(scene, camera);
+}
+
+// ページレイアウトが確定してから初期化
+requestAnimationFrame(() => {
+  onResize();
+  buildMesh();
+  animate();
+});
+</script>
+</body>
+</html>

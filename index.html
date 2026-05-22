@@ -248,8 +248,8 @@
     <div class="section-title">蓋の基本寸法</div>
     <div class="param-group">
       <div class="param-row">
-        <label>外径 (mm) <span id="val-outerD">100</span></label>
-        <input type="range" id="outerD" min="50" max="200" value="100" step="1">
+        <label>外径 (mm) <span id="val-outerD">150</span></label>
+        <input type="range" id="outerD" min="50" max="250" value="150" step="1">
       </div>
       <div class="param-row">
         <label>厚み (mm) <span id="val-thickness">5</span></label>
@@ -262,12 +262,12 @@
     <div class="section-title">凹み寸法</div>
     <div class="param-group">
       <div class="param-row">
-        <label>凹み直径 (mm) <span id="val-holeD">60</span></label>
-        <input type="range" id="holeD" min="10" max="180" value="60" step="1">
+        <label>凹み直径 (mm) <span id="val-holeD">125</span></label>
+        <input type="range" id="holeD" min="10" max="230" value="125" step="1">
       </div>
       <div class="param-row">
-        <label>凹み深さ (mm) <span id="val-holeDepth">3</span></label>
-        <input type="range" id="holeDepth" min="0.5" max="70" value="3" step="0.5">
+        <label>凹み深さ (mm) <span id="val-holeDepth">40</span></label>
+        <input type="range" id="holeDepth" min="0.5" max="100" value="40" step="0.5">
       </div>
     </div>
   </div>
@@ -885,20 +885,32 @@ function buildMesh() {
   const slotSize = parseFloat(document.getElementById('slotSize').value);
 
   // 底面の外径はリムの内径と一致（STL 出力時に頂点溶接 + 重複面削除でクリーンアップ）
-  const EPS = 0;   // オーバーラップなし（同位置→ welding で結合）
+  const EPS = 0;
   const bottomR = holeR;
 
+  // 中央凸の有無と直径を取得（クリッピング用）
+  const bumpOnForClip = document.getElementById('bumpOn').checked;
+  const bumpR_clip    = bumpOnForClip ? (parseFloat(document.getElementById('bumpD').value) / 2) : 0;
+  const doBumpClip    = bumpOnForClip && bumpR_clip > 0 && bumpR_clip < bottomR;
+
+  // 底面は常に ExtrudeGeometry を使う（メッシュ穴 + 中央凸クリッピング両対応）
+  const bottomShape = new THREE.Shape();
+  bottomShape.absarc(0, 0, bottomR, 0, Math.PI * 2, false);
+
+  // 中央凸の足元クリッピング穴
+  if (doBumpClip) {
+    const bumpHole = new THREE.Path();
+    bumpHole.absarc(0, 0, bumpR_clip, 0, Math.PI * 2, true);
+    bottomShape.holes.push(bumpHole);
+  }
+
+  // メッシュ穴グリッド
   if (meshOn && (barW + slotSize) > 0.1) {
-    // 円形 + 格子穴の Shape を作成して押し出し
-    const bottomShape = new THREE.Shape();
-    bottomShape.absarc(0, 0, bottomR, 0, Math.PI * 2, false);
+    const pitch      = barW + slotSize;
+    const halfSlot   = slotSize / 2;
+    const maxCornerR = bottomR - barW;   // 外周境界
 
-    const pitch       = barW + slotSize;
-    const halfSlot    = slotSize / 2;
-    const maxCornerR  = holeR - barW;   // 穴の角がここより内側でないとダメ（穴のクリッピングは元の holeR 基準）
-
-    // グリッドの中心を原点に合わせる
-    const gridN = Math.ceil(holeR * 2 / pitch) + 2;
+    const gridN = Math.ceil(bottomR * 2 / pitch) + 2;
     const start = -Math.floor(gridN / 2) * pitch;
 
     for (let i = 0; i < gridN; i++) {
@@ -906,10 +918,17 @@ function buildMesh() {
         const cx = start + i * pitch;
         const cy = start + j * pitch;
 
-        // 穴の最遠コーナーが円内に収まるかチェック
+        // 外周境界チェック（最遠コーナーが円内）
         const farX = Math.abs(cx) + halfSlot;
         const farY = Math.abs(cy) + halfSlot;
         if (Math.sqrt(farX * farX + farY * farY) > maxCornerR) continue;
+
+        // 中央凸領域チェック（最近コーナーが bumpR + barW より外側）
+        if (doBumpClip) {
+          const nearX = Math.max(0, Math.abs(cx) - halfSlot);
+          const nearY = Math.max(0, Math.abs(cy) - halfSlot);
+          if (Math.sqrt(nearX * nearX + nearY * nearY) < bumpR_clip + barW) continue;
+        }
 
         // 角穴を Path として追加（時計回り = 穴）
         const slot = new THREE.Path();
@@ -921,23 +940,16 @@ function buildMesh() {
         bottomShape.holes.push(slot);
       }
     }
-
-    const bottomGeo = new THREE.ExtrudeGeometry(bottomShape, {
-      depth: bottomThick,
-      bevelEnabled: false,
-      curveSegments: segs,
-    });
-    // ExtrudeGeometry は +Z 方向に伸びるので回転 → +Y 方向に
-    bottomGeo.rotateX(-Math.PI / 2);
-    // 回転後の Y 範囲は [0, bottomThick]、トップが bottomTopY になるよう移動
-    bottomGeo.translate(0, bottomTopY - bottomThick, 0);
-    meshGroup.add(new THREE.Mesh(bottomGeo, matInner));
-  } else {
-    // ソリッド円盤
-    const bottomGeo = new THREE.CylinderGeometry(bottomR, bottomR, bottomThick, segs);
-    bottomGeo.translate(0, (bottomTopY + bottomBottomY) / 2, 0);
-    meshGroup.add(new THREE.Mesh(bottomGeo, matInner));
   }
+
+  const bottomGeo = new THREE.ExtrudeGeometry(bottomShape, {
+    depth: bottomThick,
+    bevelEnabled: false,
+    curveSegments: segs,
+  });
+  bottomGeo.rotateX(-Math.PI / 2);
+  bottomGeo.translate(0, bottomTopY - bottomThick, 0);
+  meshGroup.add(new THREE.Mesh(bottomGeo, matInner));
 
   // -- 凹み側壁 --
   if (holeDepth > 0.01) {

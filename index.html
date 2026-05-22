@@ -680,12 +680,11 @@ function buildCageWall(outerR, innerR, yBottom, yTop, barW, slotSize) {
     meshGroup.add(new THREE.Mesh(geo, matOuter));
   }
 
-  // 垂直バー（× numRows × numCols）：上下方向に OVL だけ伸ばして両端のリブと重ねる
-  const OVL = 0.05;
+  // 垂直バー（× numRows × numCols）：両端をリブと正確に一致させる（welding で結合）
   if (slotH > 0) {
     for (let row = 0; row < numRows; row++) {
-      const barBottomY = yBottom + (row + 1) * barW + row * slotH - OVL;
-      const barH = slotH + 2 * OVL;
+      const barBottomY = yBottom + (row + 1) * barW + row * slotH;
+      const barH = slotH;
       for (let col = 0; col < numCols; col++) {
         const a0 = col * colAng;
         const a1 = a0 + barAng;
@@ -812,12 +811,11 @@ function buildSideMesh(holeR, holeDepth, barW, slotSize, topY) {
   }
 
   // --- 垂直バー（ウェッジ形状）× numRows × numCols ---
-  //   上下方向に OVL だけ伸ばして両端のリブと重ねる（非多様体回避）
-  const OVL_SIDE = 0.05;
+  //   両端をリブと正確に一致させる（welding で結合）
   if (slotH > 0) {
     for (let row = 0; row < numRows; row++) {
-      const barBottomY = wallBottomY + (row + 1) * barW + row * slotH - OVL_SIDE;
-      const barH       = slotH + 2 * OVL_SIDE;
+      const barBottomY = wallBottomY + (row + 1) * barW + row * slotH;
+      const barH       = slotH;
 
       for (let col = 0; col < numCols; col++) {
         const a0 = col * colAng;
@@ -886,11 +884,9 @@ function buildMesh() {
   const barW     = parseFloat(document.getElementById('barW').value);
   const slotSize = parseFloat(document.getElementById('slotSize').value);
 
-  // STL 非多様体回避用の微小オーバーラップ
-  const EPS = 0.05;
-
-  // 底面の外径は holeR + EPS で、リムと径方向にわずかに重ねる
-  const bottomR = holeR + EPS;
+  // 底面の外径はリムの内径と一致（STL 出力時に頂点溶接 + 重複面削除でクリーンアップ）
+  const EPS = 0;   // オーバーラップなし（同位置→ welding で結合）
+  const bottomR = holeR;
 
   if (meshOn && (barW + slotSize) > 0.1) {
     // 円形 + 格子穴の Shape を作成して押し出し
@@ -946,8 +942,8 @@ function buildMesh() {
   // -- 凹み側壁 --
   if (holeDepth > 0.01) {
     if (meshOn && (barW + slotSize) > 0.1) {
-      // ケージ状メッシュ側壁（外径を EPS だけ広げてリムに食い込ませる）
-      buildSideMesh(holeR + EPS, holeDepth, barW, slotSize, thickness);
+      // ケージ状メッシュ側壁（外径はリムの内径と一致）
+      buildSideMesh(holeR, holeDepth, barW, slotSize, thickness);
     } else {
       // ソリッドの場合：
       //   浅い凹み (holeDepth <= thickness): リムの内側面が壁を兼ねるので追加不要
@@ -956,7 +952,7 @@ function buildMesh() {
         const tubeWallT  = Math.max(barW, 1);   // 管の壁厚
         const tubeOuterR = holeR + tubeWallT;
         const tubeInnerR = holeR;
-        const tubeTopY    = EPS;                            // リム下端 (Y=0) に EPS 食い込み
+        const tubeTopY    = 0;                              // リム下端と一致（welding で結合）
         const tubeBottomY = thickness - holeDepth;          // 凹み底
         const tubeH       = tubeTopY - tubeBottomY;
 
@@ -981,8 +977,8 @@ function buildMesh() {
   if (bumpOn) {
     const bumpR = parseFloat(document.getElementById('bumpD').value) / 2;
     const bumpH = parseFloat(document.getElementById('bumpH').value);
-    // 凸の底＝凹みの内側底（水が溜まる面）から EPS だけ下に食い込ませる
-    buildCenterBump(bumpR, bumpH + EPS, bottomTopY - EPS, barW, slotSize, meshOn);
+    // 凸の底＝凹みの内側底（水が溜まる面）と一致（welding で結合）
+    buildCenterBump(bumpR, bumpH, bottomTopY, barW, slotSize, meshOn);
   }
 
   // -- 外周フック（ネット引っかけ用突起）--
@@ -1024,36 +1020,101 @@ document.getElementById('btn-update').addEventListener('click', buildMesh);
 
 // ============================================================
 //  STL エクスポート（バイナリ形式）
+//  頂点溶接 + 重複三角形（背中合わせの内部面）削除を行い、非多様体を低減
 // ============================================================
 function exportSTL() {
   meshGroup.updateMatrixWorld(true);
 
-  // 1. 三角形の総数をカウント
-  let N = 0;
+  // ---- Step 1: 全メッシュの全三角形を集めて頂点を溶接 ----
+  const tol  = 1e-3;            // 溶接トレランス（1 µm）
+  const grid = new Map();       // 量子化座標 → グローバル頂点 ID
+  const verts = [];             // [x, y, z, ...] flat array
+  const tris  = [];             // 三角形 [a, b, c, a, b, c, ...] flat array
+
+  function getOrAddVert(x, y, z) {
+    const kx = Math.round(x / tol);
+    const ky = Math.round(y / tol);
+    const kz = Math.round(z / tol);
+    const key = `${kx},${ky},${kz}`;
+    const id = grid.get(key);
+    if (id !== undefined) return id;
+    const newId = verts.length / 3;
+    verts.push(x, y, z);
+    grid.set(key, newId);
+    return newId;
+  }
+
+  const v = new THREE.Vector3();
   meshGroup.traverse((obj) => {
     if (!obj.isMesh) return;
     const geo = obj.geometry;
     if (!geo || !geo.attributes.position) return;
+    const pos = geo.attributes.position;
     const idx = geo.index;
-    N += idx ? idx.count / 3 : geo.attributes.position.count / 3;
+    const M = obj.matrixWorld;
+    const triCount = idx ? idx.count / 3 : pos.count / 3;
+
+    for (let i = 0; i < triCount; i++) {
+      const i1 = idx ? idx.getX(i * 3 + 0) : i * 3 + 0;
+      const i2 = idx ? idx.getX(i * 3 + 1) : i * 3 + 1;
+      const i3 = idx ? idx.getX(i * 3 + 2) : i * 3 + 2;
+
+      v.fromBufferAttribute(pos, i1).applyMatrix4(M);
+      const a = getOrAddVert(v.x, v.y, v.z);
+      v.fromBufferAttribute(pos, i2).applyMatrix4(M);
+      const b = getOrAddVert(v.x, v.y, v.z);
+      v.fromBufferAttribute(pos, i3).applyMatrix4(M);
+      const c = getOrAddVert(v.x, v.y, v.z);
+
+      // 退化（同一頂点を含む）三角形はスキップ
+      if (a === b || b === c || a === c) continue;
+      tris.push(a, b, c);
+    }
   });
+
+  // ---- Step 2: 重複（背中合わせ）三角形を削除 ----
+  // 同じ 3 頂点を持つ三角形は内部面なので両方とも削除
+  const triKeys = new Array(tris.length / 3);
+  const keyCount = new Map();
+  for (let i = 0; i < tris.length / 3; i++) {
+    const a = tris[i * 3 + 0];
+    const b = tris[i * 3 + 1];
+    const c = tris[i * 3 + 2];
+    // ソートして正規化
+    let s0 = a, s1 = b, s2 = c;
+    if (s0 > s1) [s0, s1] = [s1, s0];
+    if (s1 > s2) [s1, s2] = [s2, s1];
+    if (s0 > s1) [s0, s1] = [s1, s0];
+    const key = `${s0},${s1},${s2}`;
+    triKeys[i] = key;
+    keyCount.set(key, (keyCount.get(key) || 0) + 1);
+  }
+
+  const keptTris = [];
+  let removedCount = 0;
+  for (let i = 0; i < tris.length / 3; i++) {
+    if (keyCount.get(triKeys[i]) > 1) {
+      removedCount++;
+      continue;
+    }
+    keptTris.push(tris[i * 3 + 0], tris[i * 3 + 1], tris[i * 3 + 2]);
+  }
+
+  const N = keptTris.length / 3;
+  console.log(`STL export: ${verts.length/3} verts, ${tris.length/3} raw tris → ${N} cleaned tris (removed ${removedCount} duplicates)`);
   if (N === 0) return null;
 
-  // 2. バイナリ STL バッファ確保
-  //    [80byte header] + [4byte uint32 triangle count] + [50byte * N]
+  // ---- Step 3: バイナリ STL 書き込み ----
   const buffer = new ArrayBuffer(84 + N * 50);
   const view   = new DataView(buffer);
 
-  // 3. 80 byte ヘッダ（説明文字列）
-  const desc = 'drain cover generator (Y-up, mm) - binary STL';
+  // 80 byte ヘッダ
+  const desc = 'drain cover generator (welded, dedup) - binary STL';
   for (let i = 0; i < Math.min(desc.length, 80); i++) {
     view.setUint8(i, desc.charCodeAt(i));
   }
-
-  // 4. 三角形数
   view.setUint32(80, N, true);
 
-  // 5. 全三角形を書き込み
   const v1 = new THREE.Vector3();
   const v2 = new THREE.Vector3();
   const v3 = new THREE.Vector3();
@@ -1062,85 +1123,265 @@ function exportSTL() {
   const nv = new THREE.Vector3();
 
   let off = 84;
+  for (let i = 0; i < N; i++) {
+    const a = keptTris[i * 3 + 0];
+    const b = keptTris[i * 3 + 1];
+    const c = keptTris[i * 3 + 2];
+
+    v1.set(verts[a*3+0], verts[a*3+1], verts[a*3+2]);
+    v2.set(verts[b*3+0], verts[b*3+1], verts[b*3+2]);
+    v3.set(verts[c*3+0], verts[c*3+1], verts[c*3+2]);
+
+    cb.subVectors(v3, v2);
+    ab.subVectors(v1, v2);
+    nv.crossVectors(cb, ab);
+    if (nv.lengthSq() > 0) nv.normalize();
+    else nv.set(0, 0, 1);
+
+    view.setFloat32(off +  0, nv.x, true);
+    view.setFloat32(off +  4, nv.y, true);
+    view.setFloat32(off +  8, nv.z, true);
+    view.setFloat32(off + 12, v1.x, true);
+    view.setFloat32(off + 16, v1.y, true);
+    view.setFloat32(off + 20, v1.z, true);
+    view.setFloat32(off + 24, v2.x, true);
+    view.setFloat32(off + 28, v2.y, true);
+    view.setFloat32(off + 32, v2.z, true);
+    view.setFloat32(off + 36, v3.x, true);
+    view.setFloat32(off + 40, v3.y, true);
+    view.setFloat32(off + 44, v3.z, true);
+    view.setUint16 (off + 48, 0, true);
+    off += 50;
+  }
+
+  return { buffer, triCount: N, removedDups: removedCount };
+}
+
+// ============================================================
+//  Manifold-3D を使った CSG ベースの STL エクスポート（クリーン版）
+//  全パーツを CSG ユニオン → 完全な watertight manifold を生成
+// ============================================================
+let manifoldPromise = null;
+async function loadManifold() {
+  if (manifoldPromise) return manifoldPromise;
+
+  manifoldPromise = (async () => {
+    const ver     = '3.0.1';
+    const baseUrl = `https://cdn.jsdelivr.net/npm/manifold-3d@${ver}/`;
+    const Module  = (await import(/* @vite-ignore */ baseUrl + 'manifold.js')).default;
+    const wasm    = await Module({
+      locateFile: (path) => baseUrl + path
+    });
+    wasm.setup();
+    return wasm;
+  })().catch((err) => {
+    manifoldPromise = null;
+    throw err;
+  });
+
+  return manifoldPromise;
+}
+
+async function exportSTLClean() {
+  const wasm = await loadManifold();
+  const { Manifold, Mesh } = wasm;
+
+  meshGroup.updateMatrixWorld(true);
+
+  // 各 Three.js メッシュを Manifold に変換
+  const manifolds = [];
+  const v = new THREE.Vector3();
+
   meshGroup.traverse((obj) => {
     if (!obj.isMesh) return;
     const geo = obj.geometry;
     if (!geo || !geo.attributes.position) return;
+    const pos = geo.attributes.position;
+    const idx = geo.index;
+    const M   = obj.matrixWorld;
+    const nV  = pos.count;
 
-    const pos      = geo.attributes.position;
-    const idx      = geo.index;
-    const matrix   = obj.matrixWorld;
-    const triCount = idx ? idx.count / 3 : pos.count / 3;
+    // 頂点（ワールド座標）を配列に
+    const rawVerts = new Float32Array(nV * 3);
+    for (let i = 0; i < nV; i++) {
+      v.fromBufferAttribute(pos, i).applyMatrix4(M);
+      rawVerts[i*3+0] = v.x;
+      rawVerts[i*3+1] = v.y;
+      rawVerts[i*3+2] = v.z;
+    }
 
-    for (let i = 0; i < triCount; i++) {
-      const i1 = idx ? idx.getX(i * 3 + 0) : i * 3 + 0;
-      const i2 = idx ? idx.getX(i * 3 + 1) : i * 3 + 1;
-      const i3 = idx ? idx.getX(i * 3 + 2) : i * 3 + 2;
+    // 元のインデックス（無い場合は i のまま）
+    let rawTriVerts;
+    if (idx) {
+      rawTriVerts = new Uint32Array(idx.count);
+      for (let i = 0; i < idx.count; i++) rawTriVerts[i] = idx.getX(i);
+    } else {
+      rawTriVerts = new Uint32Array(nV);
+      for (let i = 0; i < nV; i++) rawTriVerts[i] = i;
+    }
 
-      v1.fromBufferAttribute(pos, i1).applyMatrix4(matrix);
-      v2.fromBufferAttribute(pos, i2).applyMatrix4(matrix);
-      v3.fromBufferAttribute(pos, i3).applyMatrix4(matrix);
+    // --- 頂点をローカルにデデュプリケート（Manifold は完全閉曲面を要求） ---
+    const tol = 1e-4;
+    const seen = new Map();
+    const remap = new Int32Array(nV);
+    const uniqueVerts = [];
+    for (let i = 0; i < nV; i++) {
+      const x = rawVerts[i*3+0];
+      const y = rawVerts[i*3+1];
+      const z = rawVerts[i*3+2];
+      const k = `${Math.round(x/tol)},${Math.round(y/tol)},${Math.round(z/tol)}`;
+      let id = seen.get(k);
+      if (id === undefined) {
+        id = uniqueVerts.length / 3;
+        seen.set(k, id);
+        uniqueVerts.push(x, y, z);
+      }
+      remap[i] = id;
+    }
 
-      // 法線 = (v3 - v2) × (v1 - v2) (Three.js の CCW 規約)
-      cb.subVectors(v3, v2);
-      ab.subVectors(v1, v2);
-      nv.crossVectors(cb, ab);
-      if (nv.lengthSq() > 0) nv.normalize();
-      else nv.set(0, 0, 1);
+    // インデックスを再マッピングし、退化三角形を除去
+    const newTris = [];
+    for (let i = 0; i < rawTriVerts.length; i += 3) {
+      const a = remap[rawTriVerts[i+0]];
+      const b = remap[rawTriVerts[i+1]];
+      const c = remap[rawTriVerts[i+2]];
+      if (a === b || b === c || a === c) continue;
+      newTris.push(a, b, c);
+    }
 
-      view.setFloat32(off +  0, nv.x, true);
-      view.setFloat32(off +  4, nv.y, true);
-      view.setFloat32(off +  8, nv.z, true);
-      view.setFloat32(off + 12, v1.x, true);
-      view.setFloat32(off + 16, v1.y, true);
-      view.setFloat32(off + 20, v1.z, true);
-      view.setFloat32(off + 24, v2.x, true);
-      view.setFloat32(off + 28, v2.y, true);
-      view.setFloat32(off + 32, v2.z, true);
-      view.setFloat32(off + 36, v3.x, true);
-      view.setFloat32(off + 40, v3.y, true);
-      view.setFloat32(off + 44, v3.z, true);
-      view.setUint16 (off + 48, 0, true);   // attribute byte count (常に 0)
-      off += 50;
+    const vertProperties = new Float32Array(uniqueVerts);
+    const triVerts       = new Uint32Array(newTris);
+
+    try {
+      const mesh = new Mesh({ numProp: 3, vertProperties, triVerts });
+      const mf   = new Manifold(mesh);
+      manifolds.push(mf);
+    } catch (e) {
+      console.warn(`Manifold 変換失敗 (${geo.type}):`, e.message || e);
     }
   });
 
-  return { buffer, triCount: N };
+  if (manifolds.length === 0) return null;
+
+  // 全てユニオン
+  let result;
+  if (manifolds.length === 1) {
+    result = manifolds[0];
+  } else {
+    // Manifold.union(array) でまとめてユニオン
+    result = Manifold.union(manifolds);
+  }
+
+  const outMesh   = result.getMesh();
+  const positions = outMesh.vertProperties;
+  const indices   = outMesh.triVerts;
+
+  // クリーンアップ
+  manifolds.forEach(m => m.delete());
+  if (result !== manifolds[0] || manifolds.length > 1) result.delete();
+
+  // STL バイナリ書き込み
+  const N = indices.length / 3;
+  if (N === 0) return null;
+
+  const buffer = new ArrayBuffer(84 + N * 50);
+  const view   = new DataView(buffer);
+  const desc   = 'drain cover generator (manifold-CSG) - binary STL';
+  for (let i = 0; i < Math.min(desc.length, 80); i++) {
+    view.setUint8(i, desc.charCodeAt(i));
+  }
+  view.setUint32(80, N, true);
+
+  let off = 84;
+  for (let i = 0; i < N; i++) {
+    const a = indices[i*3+0];
+    const b = indices[i*3+1];
+    const c = indices[i*3+2];
+    const ax = positions[a*3+0], ay = positions[a*3+1], az = positions[a*3+2];
+    const bx = positions[b*3+0], by = positions[b*3+1], bz = positions[b*3+2];
+    const cx = positions[c*3+0], cy = positions[c*3+1], cz = positions[c*3+2];
+
+    // 法線 = (c-b) × (a-b)
+    const ux = cx - bx, uy = cy - by, uz = cz - bz;
+    const vx = ax - bx, vy = ay - by, vz = az - bz;
+    let nx = uy*vz - uz*vy;
+    let ny = uz*vx - ux*vz;
+    let nz = ux*vy - uy*vx;
+    const nL = Math.sqrt(nx*nx + ny*ny + nz*nz);
+    if (nL > 1e-12) { nx/=nL; ny/=nL; nz/=nL; }
+    else            { nx = 0; ny = 0; nz = 1; }
+
+    view.setFloat32(off +  0, nx, true);
+    view.setFloat32(off +  4, ny, true);
+    view.setFloat32(off +  8, nz, true);
+    view.setFloat32(off + 12, ax, true);
+    view.setFloat32(off + 16, ay, true);
+    view.setFloat32(off + 20, az, true);
+    view.setFloat32(off + 24, bx, true);
+    view.setFloat32(off + 28, by, true);
+    view.setFloat32(off + 32, bz, true);
+    view.setFloat32(off + 36, cx, true);
+    view.setFloat32(off + 40, cy, true);
+    view.setFloat32(off + 44, cz, true);
+    view.setUint16 (off + 48, 0, true);
+    off += 50;
+  }
+
+  return { buffer, triCount: N, method: 'manifold-csg' };
 }
 
-function downloadSTL() {
+// ============================================================
+//  ダウンロードボタンのハンドラ（Manifold 優先、失敗時は dedup フォールバック）
+// ============================================================
+async function downloadSTL() {
   const s = document.getElementById('status');
-  s.textContent = '⏳ STL 生成中...';
+  s.textContent = '⏳ Manifold-3D 準備中...';
 
-  // 1フレーム後に実行（UI 更新の機会を与える）
-  setTimeout(() => {
-    const result = exportSTL();
-    if (!result) {
-      s.textContent = '⚠️ メッシュが空です';
-      setTimeout(() => { s.textContent = '✅ 準備完了'; }, 2500);
-      return;
-    }
+  let result = null;
+  let method = 'dedup';
 
-    const blob = new Blob([result.buffer], { type: 'application/octet-stream' });
-    const url  = URL.createObjectURL(blob);
+  // 1. Manifold-3D による CSG ユニオン（クリーン）を試す
+  try {
+    s.textContent = '⏳ CSG union 計算中...';
+    await new Promise(r => setTimeout(r, 30));  // UI 更新
+    result = await exportSTLClean();
+    if (result) method = 'manifold';
+  } catch (e) {
+    console.warn('Manifold export 失敗、フォールバック:', e);
+  }
 
-    // ファイル名を主要寸法から生成
-    const outerD = document.getElementById('outerD').value;
-    const holeD  = document.getElementById('holeD').value;
-    const filename = `drain_cover_D${outerD}_hole${holeD}.stl`;
+  // 2. フォールバック：頂点溶接 + 重複三角形削除
+  if (!result) {
+    s.textContent = '⏳ 通常モードで STL 生成中...';
+    await new Promise(r => setTimeout(r, 30));
+    result = exportSTL();
+  }
 
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
+  if (!result) {
+    s.textContent = '⚠️ メッシュが空です';
+    setTimeout(() => { s.textContent = '✅ 準備完了'; }, 2500);
+    return;
+  }
 
-    const sizeKB = (result.buffer.byteLength / 1024).toFixed(1);
-    s.textContent = `✅ DL完了 (${result.triCount}三角形 / ${sizeKB} KB)`;
-    setTimeout(() => { s.textContent = '✅ 準備完了'; }, 4000);
-  }, 30);
+  const blob = new Blob([result.buffer], { type: 'application/octet-stream' });
+  const url  = URL.createObjectURL(blob);
+
+  const outerD = document.getElementById('outerD').value;
+  const holeD  = document.getElementById('holeD').value;
+  const filename = `drain_cover_D${outerD}_hole${holeD}.stl`;
+
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+
+  const sizeKB = (result.buffer.byteLength / 1024).toFixed(1);
+  const tag    = method === 'manifold' ? '✨ CSG' : '🛠 dedup';
+  s.textContent = `✅ DL完了 ${tag} (${result.triCount}三角形 / ${sizeKB} KB)`;
+  setTimeout(() => { s.textContent = '✅ 準備完了'; }, 5000);
 }
 
 document.getElementById('btn-download').addEventListener('click', downloadSTL);

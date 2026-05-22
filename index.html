@@ -1263,66 +1263,67 @@ async function exportSTLClean() {
 
   meshGroup.updateMatrixWorld(true);
 
-  // CSG プリミティブからメッシュディスク（外円 - 中央穴 - スロット箱）を作る
-  // Three.js ExtrudeGeometry は複数の穴があると非マニフォールドを生成するため、
-  // STL 出力時のみ Manifold ベースで再構築する
+  // 2D ポリゴン (外周円 + 中央穴 + スロットウェッジ) を一括で押し出してディスクを生成
+  // 視覚化と同じウェッジ形状を STL に出力できる
+  const CrossSection = wasm.CrossSection;
   function buildMeshDiskManifold(spec) {
-    // disk: cylinder(outerR, thickness) at topY (top surface at topY)
-    const r = spec.outerR;
-    const t = spec.thickness;
+    const r    = spec.outerR;
+    const t    = spec.thickness;
     const yTop = spec.topY;
     const yBot = yTop - t;
-    const cylSegs = 64;
+    const segs = 64;
 
-    // ベース円柱（中心は Y軸方向で yBot..yTop）
-    let body = Manifold.cylinder(t, r, r, cylSegs, false);
-    // Manifold.cylinder は (0,0,0) を底面中心として +Z 方向に伸びる。Y軸基準にするため Z→Y rot。
-    body = body.rotate([90, 0, 0]).translate([0, yBot + t, 0]);
-    // 上記の rotate+translate で正しい Y 位置に
-    // しかし Manifold.cylinder は Z+ 方向に伸びるので、rotate([90,0,0])で +Z → -Y になってしまう。
-    // 代わりに +Z を +Y に持ってくる方向の回転 (-90度 around X)
-    // Manifold の rotate は degrees。-90 度 around X。
+    const polygons = [];
 
-    // 仕切り直し
-    body.delete();
-    body = Manifold.cylinder(t, r, r, cylSegs, false)
-      .rotate([-90, 0, 0])             // +Z → +Y
-      .translate([0, yBot, 0]);        // 底面が yBot に
+    // 1. 外周円（CCW: 内側として認識）
+    const outer = [];
+    for (let i = 0; i < segs; i++) {
+      const a = (i / segs) * 2 * Math.PI;
+      outer.push([r * Math.cos(a), r * Math.sin(a)]);
+    }
+    polygons.push(outer);
 
-    // 中央穴を引く
+    // 2. 中央バンプクリップ穴（CW: 穴として認識）
     if (spec.centerHoleR > 0 && spec.centerHoleR < r) {
-      const eps = 0.1;  // 確実に貫通させる
-      const hole = Manifold.cylinder(t + 2*eps, spec.centerHoleR, spec.centerHoleR, cylSegs, false)
-        .rotate([-90, 0, 0])
-        .translate([0, yBot - eps, 0]);
-      const newBody = Manifold.difference(body, hole);
-      body.delete(); hole.delete();
-      body = newBody;
+      const inner = [];
+      for (let i = 0; i < segs; i++) {
+        const a = -(i / segs) * 2 * Math.PI;  // 負方向 → CW
+        inner.push([spec.centerHoleR * Math.cos(a), spec.centerHoleR * Math.sin(a)]);
+      }
+      polygons.push(inner);
     }
 
-    // スロット穴を引く（リング配置：tangential 方向に回転した box）
-    const eps = 0.1;
-    const midY = (yBot + yTop) / 2;
-    const boxes = [];
+    // 3. スロット環状ウェッジ（CW: 穴として認識）
     for (const s of spec.slots) {
-      // s = { R, theta, tangSize, radSize }
-      // box の局所軸: X=接線, Y=垂直, Z=半径方向
-      const box = Manifold.cube([s.tangSize, t + 2*eps, s.radSize], true);
-      // Y軸まわりに回転して接線方向を世界座標の (-sin(θ), 0, cos(θ)) に合わせる
-      const degY = -(90 + s.theta * 180 / Math.PI);
-      const positioned = box.rotate([0, degY, 0])
-        .translate([s.R * Math.cos(s.theta), midY, s.R * Math.sin(s.theta)]);
-      boxes.push(positioned);
-    }
-    if (boxes.length > 0) {
-      const allHoles = Manifold.union(boxes);
-      boxes.forEach(b => b.delete());
-      const newBody = Manifold.difference(body, allHoles);
-      body.delete(); allHoles.delete();
-      body = newBody;
+      const Ri      = s.R - s.radSize / 2;
+      const Ro      = s.R + s.radSize / 2;
+      const angHalf = (s.tangSize / 2) / s.R;
+      const ang0    = s.theta - angHalf;
+      const ang1    = s.theta + angHalf;
+      const arcSegs = 6;
+
+      const wedge = [];
+      // CW: 外側アーク (ang1 → ang0)
+      for (let k = 0; k <= arcSegs; k++) {
+        const a = ang1 + (ang0 - ang1) * (k / arcSegs);
+        wedge.push([Ro * Math.cos(a), Ro * Math.sin(a)]);
+      }
+      // CW: 内側アーク (ang0 → ang1) で閉じる
+      for (let k = 0; k <= arcSegs; k++) {
+        const a = ang0 + (ang1 - ang0) * (k / arcSegs);
+        wedge.push([Ri * Math.cos(a), Ri * Math.sin(a)]);
+      }
+      polygons.push(wedge);
     }
 
-    return body;
+    // 一括押し出し → Y軸を上に → Y範囲を [yBot, yTop] に
+    const cs   = CrossSection.ofPolygons(polygons);
+    const disk = cs.extrude(t);
+    cs.delete();
+
+    const positioned = disk.rotate([-90, 0, 0]).translate([0, yBot, 0]);
+    disk.delete();
+    return positioned;
   }
 
   // 各 Three.js メッシュを Manifold に変換

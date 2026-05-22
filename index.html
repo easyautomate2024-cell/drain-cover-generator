@@ -563,12 +563,13 @@ function buildMeshDisk(radius, thick, topY, barW, slotSize, material) {
   const shape = new THREE.Shape();
   shape.absarc(0, 0, radius, 0, Math.PI * 2, false);
 
-  const pitch      = barW + slotSize;
-  const halfSlot   = slotSize / 2;
-  const maxCornerR = radius - barW;
-  const slotInfo   = [];
+  const pitch       = barW + slotSize;
+  const halfSlot    = slotSize / 2;
+  const innerSafeR  = radius - barW;
+  const outerLimit  = radius;
+  const slotInfo    = [];
 
-  if (maxCornerR > 0) {
+  if (outerLimit > 0) {
     const gridN = Math.ceil(radius * 2 / pitch) + 2;
     const start = -Math.floor(gridN / 2) * pitch;
 
@@ -576,16 +577,61 @@ function buildMeshDisk(radius, thick, topY, barW, slotSize, material) {
       for (let j = 0; j < gridN; j++) {
         const cx = start + i * pitch;
         const cy = start + j * pitch;
+
         const farX = Math.abs(cx) + halfSlot;
         const farY = Math.abs(cy) + halfSlot;
-        if (Math.sqrt(farX * farX + farY * farY) > maxCornerR) continue;
+        const farDist = Math.sqrt(farX * farX + farY * farY);
+        const nearX = Math.max(0, Math.abs(cx) - halfSlot);
+        const nearY = Math.max(0, Math.abs(cy) - halfSlot);
+        const nearDist = Math.sqrt(nearX * nearX + nearY * nearY);
+
+        if (nearDist >= outerLimit) continue;
+        const centerDist = Math.sqrt(cx * cx + cy * cy);
+        if (centerDist > outerLimit - barW * 0.3) continue;
 
         const slot = new THREE.Path();
-        slot.moveTo(cx - halfSlot, cy - halfSlot);
-        slot.lineTo(cx - halfSlot, cy + halfSlot);
-        slot.lineTo(cx + halfSlot, cy + halfSlot);
-        slot.lineTo(cx + halfSlot, cy - halfSlot);
-        slot.lineTo(cx - halfSlot, cy - halfSlot);
+        if (farDist <= innerSafeR) {
+          // 完全内側
+          slot.moveTo(cx - halfSlot, cy - halfSlot);
+          slot.lineTo(cx - halfSlot, cy + halfSlot);
+          slot.lineTo(cx + halfSlot, cy + halfSlot);
+          slot.lineTo(cx + halfSlot, cy - halfSlot);
+          slot.lineTo(cx - halfSlot, cy - halfSlot);
+        } else {
+          // 円弧クリップ
+          const samples = 16;
+          const corners = [
+            [cx - halfSlot, cy - halfSlot],
+            [cx - halfSlot, cy + halfSlot],
+            [cx + halfSlot, cy + halfSlot],
+            [cx + halfSlot, cy - halfSlot],
+          ];
+          const rawPts = [];
+          for (let s = 0; s < 4; s++) {
+            const a = corners[s], b = corners[(s + 1) % 4];
+            for (let k = 0; k < samples; k++) {
+              const t = k / samples;
+              let x = a[0] + (b[0] - a[0]) * t;
+              let y = a[1] + (b[1] - a[1]) * t;
+              const r = Math.sqrt(x * x + y * y);
+              if (r > outerLimit) { const sc = outerLimit / r; x *= sc; y *= sc; }
+              rawPts.push([x, y]);
+            }
+          }
+          const pts = [];
+          for (const p of rawPts) {
+            const prev = pts[pts.length - 1];
+            if (!prev || Math.abs(prev[0] - p[0]) > 0.05 || Math.abs(prev[1] - p[1]) > 0.05) pts.push(p);
+          }
+          if (pts.length > 1) {
+            const f = pts[0], l = pts[pts.length - 1];
+            if (Math.abs(f[0] - l[0]) < 0.05 && Math.abs(f[1] - l[1]) < 0.05) pts.pop();
+          }
+          if (pts.length < 3) continue;
+          slot.moveTo(pts[0][0], pts[0][1]);
+          for (let k = 1; k < pts.length; k++) slot.lineTo(pts[k][0], pts[k][1]);
+          slot.lineTo(pts[0][0], pts[0][1]);
+        }
         shape.holes.push(slot);
         slotInfo.push({ cx, cy, halfSlot });
       }
@@ -915,12 +961,13 @@ function buildMesh() {
     bottomShape.holes.push(bumpHole);
   }
 
-  // メッシュ穴グリッド（位置情報も userData 用に蓄積）
+  // メッシュ穴グリッド（端では円弧クリップした部分穴も作成）
   const slotInfo = [];  // [{cx, cy, halfSlot}] for STL export reconstruction
   if (meshOn && (barW + slotSize) > 0.1) {
     const pitch      = barW + slotSize;
     const halfSlot   = slotSize / 2;
-    const maxCornerR = bottomR - barW;   // 外周境界
+    const innerSafeR = bottomR - barW;   // 完全な矩形が収まる半径
+    const outerLimit = bottomR;          // クリップ円（ディスクの外周）
 
     const gridN = Math.ceil(bottomR * 2 / pitch) + 2;
     const start = -Math.floor(gridN / 2) * pitch;
@@ -930,25 +977,77 @@ function buildMesh() {
         const cx = start + i * pitch;
         const cy = start + j * pitch;
 
-        // 外周境界チェック（最遠コーナーが円内）
+        // 最遠 / 最近コーナーの原点からの距離
         const farX = Math.abs(cx) + halfSlot;
         const farY = Math.abs(cy) + halfSlot;
-        if (Math.sqrt(farX * farX + farY * farY) > maxCornerR) continue;
+        const farDist  = Math.sqrt(farX * farX + farY * farY);
+        const nearX    = Math.max(0, Math.abs(cx) - halfSlot);
+        const nearY    = Math.max(0, Math.abs(cy) - halfSlot);
+        const nearDist = Math.sqrt(nearX * nearX + nearY * nearY);
 
-        // 中央凸領域チェック（最近コーナーが bumpR + barW より外側）
-        if (doBumpClip) {
-          const nearX = Math.max(0, Math.abs(cx) - halfSlot);
-          const nearY = Math.max(0, Math.abs(cy) - halfSlot);
-          if (Math.sqrt(nearX * nearX + nearY * nearY) < bumpR_clip + barW) continue;
+        // スロットが完全に円外: スキップ
+        if (nearDist >= outerLimit) continue;
+
+        // 中央凸領域: 最近コーナーが bumpR + barW より内側なら skip
+        if (doBumpClip && nearDist < bumpR_clip + barW) continue;
+
+        // 中心が外周に近すぎる場合は skip（薄すぎる薄片回避）
+        const centerDist = Math.sqrt(cx * cx + cy * cy);
+        if (centerDist > outerLimit - barW * 0.3) continue;
+
+        const slot = new THREE.Path();
+
+        if (farDist <= innerSafeR) {
+          // 完全に内側: 通常の矩形穴
+          slot.moveTo(cx - halfSlot, cy - halfSlot);
+          slot.lineTo(cx - halfSlot, cy + halfSlot);
+          slot.lineTo(cx + halfSlot, cy + halfSlot);
+          slot.lineTo(cx + halfSlot, cy - halfSlot);
+          slot.lineTo(cx - halfSlot, cy - halfSlot);
+        } else {
+          // 円弧クリップが必要: 矩形周囲をサンプリングして円外の点を円周上へ射影
+          const samples  = 16;  // 1辺あたりのサンプル数
+          const corners  = [
+            [cx - halfSlot, cy - halfSlot],  // BL
+            [cx - halfSlot, cy + halfSlot],  // TL
+            [cx + halfSlot, cy + halfSlot],  // TR
+            [cx + halfSlot, cy - halfSlot],  // BR
+          ];
+          const rawPts = [];
+          for (let s = 0; s < 4; s++) {
+            const a = corners[s];
+            const b = corners[(s + 1) % 4];
+            for (let k = 0; k < samples; k++) {
+              const t = k / samples;
+              let x = a[0] + (b[0] - a[0]) * t;
+              let y = a[1] + (b[1] - a[1]) * t;
+              const r = Math.sqrt(x * x + y * y);
+              if (r > outerLimit) {
+                const sc = outerLimit / r;
+                x *= sc; y *= sc;
+              }
+              rawPts.push([x, y]);
+            }
+          }
+          // 連続する近接点を間引き
+          const pts = [];
+          for (const p of rawPts) {
+            const prev = pts[pts.length - 1];
+            if (!prev || Math.abs(prev[0] - p[0]) > 0.05 || Math.abs(prev[1] - p[1]) > 0.05) {
+              pts.push(p);
+            }
+          }
+          if (pts.length > 1) {
+            const f = pts[0], l = pts[pts.length - 1];
+            if (Math.abs(f[0] - l[0]) < 0.05 && Math.abs(f[1] - l[1]) < 0.05) pts.pop();
+          }
+          if (pts.length < 3) continue;
+
+          slot.moveTo(pts[0][0], pts[0][1]);
+          for (let k = 1; k < pts.length; k++) slot.lineTo(pts[k][0], pts[k][1]);
+          slot.lineTo(pts[0][0], pts[0][1]);
         }
 
-        // 角穴を Path として追加（時計回り = 穴）
-        const slot = new THREE.Path();
-        slot.moveTo(cx - halfSlot, cy - halfSlot);
-        slot.lineTo(cx - halfSlot, cy + halfSlot);
-        slot.lineTo(cx + halfSlot, cy + halfSlot);
-        slot.lineTo(cx + halfSlot, cy - halfSlot);
-        slot.lineTo(cx - halfSlot, cy - halfSlot);
         bottomShape.holes.push(slot);
         slotInfo.push({ cx, cy, halfSlot });
       }

@@ -5,15 +5,26 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <meta name="mobile-web-app-capable" content="yes" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="theme-color" content="#1a1a2e" />
+  <meta name="theme-color" content="#ffffff" />
   <title>排水溝蓋 STL ジェネレーター</title>
   <style>
+    /* ========== mono labo style (light theme) ========== */
+    :root {
+      --bg:        #f5f5f7;
+      --bg-white:  #ffffff;
+      --text:      #1d1d1f;
+      --muted:     #6e6e73;
+      --accent:    #0071e3;
+      --border:    rgba(0,0,0,0.08);
+      --border2:   rgba(0,0,0,0.14);
+    }
+
     * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
-      font-family: 'Segoe UI', sans-serif;
-      background: #1a1a2e;
-      color: #eee;
+      font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--text);
       display: flex;
       height: 100vh;
       overflow: hidden;
@@ -23,8 +34,9 @@
     #panel {
       width: 260px;
       min-width: 260px;
-      background: #16213e;
-      border-right: 1px solid #0f3460;
+      background: var(--bg-white);
+      border-right: 1px solid var(--border);
+      box-shadow: 0 0 20px rgba(0,0,0,0.04);
       display: flex;
       flex-direction: column;
       padding: 20px 16px;
@@ -33,13 +45,13 @@
     }
 
     #panel h1 {
-      font-size: 15px;
+      font-size: 14px;
       font-weight: 700;
-      color: #e94560;
-      letter-spacing: 1px;
+      color: var(--text);
+      letter-spacing: 0.5px;
       text-align: center;
       padding-bottom: 12px;
-      border-bottom: 1px solid #0f3460;
+      border-bottom: 1px solid var(--border);
     }
     #panel h1 .close-btn {
       display: none;  /* デスクトップでは非表示。@media クエリで表示 */
@@ -48,7 +60,7 @@
     .section-title {
       font-size: 11px;
       font-weight: 600;
-      color: #7f8c8d;
+      color: var(--muted);
       text-transform: uppercase;
       letter-spacing: 1px;
       margin-bottom: 4px;
@@ -60,61 +72,73 @@
 
     .param-row label {
       font-size: 12px;
-      color: #bdc3c7;
+      color: var(--text);
       display: flex;
       justify-content: space-between;
     }
 
-    .param-row label span { color: #e94560; font-weight: 600; }
+    .param-row label span { color: var(--accent); font-weight: 600; }
 
     .param-row input[type="range"] {
       width: 100%;
-      accent-color: #e94560;
+      accent-color: var(--accent);
       cursor: pointer;
     }
 
+    .param-row input[type="checkbox"] { accent-color: var(--accent); }
+
     /* ========== バウンディングボックス ========== */
     #bbox {
-      background: #0f3460;
-      border-radius: 6px;
+      background: var(--bg);
+      border: 1px solid var(--border);
+      border-radius: 10px;
       padding: 10px 12px;
       font-size: 12px;
       line-height: 1.8;
     }
     #bbox .bbox-title {
-      font-size: 11px; font-weight: 600; color: #7f8c8d;
+      font-size: 11px; font-weight: 600; color: var(--muted);
       text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
     }
     #bbox .bbox-row { display: flex; justify-content: space-between; }
-    #bbox .bbox-val { color: #2ecc71; font-weight: 600; }
+    #bbox .bbox-row span:first-child { color: var(--text); }
+    #bbox .bbox-val { color: var(--accent); font-weight: 600; }
 
     /* ========== ボタン ========== */
     button {
       width: 100%; padding: 10px; border: none;
-      border-radius: 6px; font-size: 13px; font-weight: 600;
-      cursor: pointer; transition: opacity 0.2s;
+      border-radius: 980px; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: filter 0.2s, background 0.2s;
     }
-    button:hover { opacity: 0.85; }
-    #btn-update   { background: #0f3460; color: #eee; }
-    #btn-download { background: #e94560; color: #fff; }
+    #btn-update {
+      background: var(--bg);
+      color: var(--text);
+      border: 1px solid var(--border2);
+    }
+    #btn-update:hover { background: #ececef; }
+    #btn-download {
+      background: var(--accent);
+      color: #ffffff;
+    }
+    #btn-download:hover { filter: brightness(1.08); }
 
     /* ========== 操作ガイド ========== */
     #guide {
-      font-size: 11px; color: #7f8c8d; line-height: 1.7;
-      border-top: 1px solid #0f3460; padding-top: 10px;
+      font-size: 11px; color: var(--muted); line-height: 1.7;
+      border-top: 1px solid var(--border); padding-top: 10px;
     }
 
     /* ========== 3Dビューワー ========== */
-    #viewer { flex: 1; position: relative; }
+    #viewer { flex: 1; position: relative; background: var(--bg); }
     #viewer canvas { display: block; }
 
     #axis-label {
       position: absolute; bottom: 16px; left: 16px;
-      font-size: 11px; color: #7f8c8d; pointer-events: none; line-height: 1.6;
+      font-size: 11px; color: #86868b; pointer-events: none; line-height: 1.6;
     }
     #status {
       position: absolute; top: 16px; left: 16px;
-      font-size: 12px; color: #2ecc71; pointer-events: none;
+      font-size: 12px; color: var(--accent); pointer-events: none;
     }
 
     /* ========== モバイル用トグルボタン（パネル開閉）========== */
@@ -125,14 +149,14 @@
       right: 12px;
       width: 44px;
       height: 44px;
-      background: #16213e;
-      border: 1px solid #0f3460;
-      border-radius: 8px;
-      color: #e94560;
+      background: var(--bg-white);
+      border: 1px solid var(--border2);
+      border-radius: 12px;
+      color: var(--accent);
       font-size: 22px;
       cursor: pointer;
       z-index: 50;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      box-shadow: 0 2px 12px rgba(0,0,0,0.1);
     }
 
     /* ========== レスポンシブ（スマホ・タブレット）========== */
@@ -175,12 +199,12 @@
         display: flex;  /* スマホでは表示 */
         align-items: center;
         justify-content: center;
-        background: #0f3460;
-        border: none;
-        color: #eee;
+        background: var(--bg);
+        border: 1px solid var(--border);
+        color: var(--text);
         width: 32px;
         height: 32px;
-        border-radius: 6px;
+        border-radius: 8px;
         font-size: 18px;
         cursor: pointer;
         padding: 0;
@@ -284,7 +308,7 @@
         <input type="range" id="slotSize" min="1" max="40" value="8" step="0.5">
       </div>
       <div class="param-row" style="flex-direction: row; align-items: center; gap: 8px;">
-        <input type="checkbox" id="meshOn" checked style="accent-color: #e94560;">
+        <input type="checkbox" id="meshOn" checked style="accent-color: #0071e3;">
         <label for="meshOn" style="cursor: pointer;">メッシュを有効化</label>
       </div>
     </div>
@@ -294,7 +318,7 @@
     <div class="section-title">中央凸（オプション）</div>
     <div class="param-group">
       <div class="param-row" style="flex-direction: row; align-items: center; gap: 8px;">
-        <input type="checkbox" id="bumpOn" style="accent-color: #e94560;">
+        <input type="checkbox" id="bumpOn" style="accent-color: #0071e3;">
         <label for="bumpOn" style="cursor: pointer;">中央凸を有効化</label>
       </div>
       <div class="param-row">
@@ -304,28 +328,6 @@
       <div class="param-row">
         <label>中央凸 高さ (mm) <span id="val-bumpH">8</span></label>
         <input type="range" id="bumpH" min="1" max="50" value="8" step="0.5">
-      </div>
-    </div>
-  </div>
-
-  <div>
-    <div class="section-title">外周フック（ネット引っかけ）</div>
-    <div class="param-group">
-      <div class="param-row" style="flex-direction: row; align-items: center; gap: 8px;">
-        <input type="checkbox" id="hooksOn" style="accent-color: #e94560;">
-        <label for="hooksOn" style="cursor: pointer;">フックを有効化</label>
-      </div>
-      <div class="param-row">
-        <label>フック数 <span id="val-hookCount">8</span></label>
-        <input type="range" id="hookCount" min="3" max="36" value="8" step="1">
-      </div>
-      <div class="param-row">
-        <label>フック高さ (mm) <span id="val-hookH">3</span></label>
-        <input type="range" id="hookH" min="1" max="15" value="3" step="0.5">
-      </div>
-      <div class="param-row">
-        <label>フック基底直径 (mm) <span id="val-hookD">3</span></label>
-        <input type="range" id="hookD" min="1" max="10" value="3" step="0.5">
       </div>
     </div>
   </div>
@@ -351,7 +353,7 @@
 <!-- ========== 3Dビューワー ========== -->
 <div id="viewer">
   <div id="status">✅ 準備完了</div>
-  <div id="axis-label">赤: X軸　緑: Y軸　青: Z軸</div>
+  <div id="axis-label">X　Y　Z 軸 / グリッド 10mm</div>
   <button id="panel-toggle" aria-label="設定パネルを開く">⚙</button>
 </div>
 
@@ -509,7 +511,7 @@ renderer.shadowMap.enabled = true;
 viewer.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0x1a1a2e);
+scene.background = new THREE.Color(0xf5f5f7);   // mono labo --bg
 
 // カメラ（位置を先に設定）
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
@@ -520,18 +522,24 @@ camera.lookAt(0, 5, 0);
 const orbitControls = new SimpleOrbitControls(camera, renderer.domElement);
 orbitControls.target.set(0, 5, 0);
 
-// ライティング
-scene.add(new THREE.AmbientLight(0xffffff, 0.6));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.9);
+// ライティング（明るい背景でも形状が見えるように調整）
+scene.add(new THREE.AmbientLight(0xffffff, 0.7));
+const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
 dirLight.position.set(150, 200, 100);
 scene.add(dirLight);
-const fillLight = new THREE.DirectionalLight(0x8899ff, 0.3);
+const fillLight = new THREE.DirectionalLight(0xc7d4e0, 0.25);
 fillLight.position.set(-100, -80, -100);
 scene.add(fillLight);
 
-// グリッド & 軸
-scene.add(new THREE.GridHelper(400, 40, 0x0f3460, 0x0f3460));
+// グリッド & 軸（背景に溶け込む控えめな色）
+const gridHelper = new THREE.GridHelper(400, 40, 0xebebed, 0xebebed);
+gridHelper.material.opacity = 0.55;
+gridHelper.material.transparent = true;
+scene.add(gridHelper);
+
 const axesHelper = new THREE.AxesHelper(60);
+axesHelper.material.opacity = 0.6;
+axesHelper.material.transparent = true;
 scene.add(axesHelper);
 
 // 中心軸（Y方向の長い軸 - 深い凹みでも参照しやすく）
@@ -539,7 +547,9 @@ const centerAxisGeo = new THREE.BufferGeometry().setFromPoints([
   new THREE.Vector3(0, -100, 0),
   new THREE.Vector3(0,  100, 0)
 ]);
-scene.add(new THREE.Line(centerAxisGeo, new THREE.LineBasicMaterial({ color: 0x2ecc71, opacity: 0.3, transparent: true })));
+scene.add(new THREE.Line(centerAxisGeo, new THREE.LineBasicMaterial({
+  color: 0x0071e3, opacity: 0.15, transparent: true
+})));
 
 // ============================================================
 //  形状グループ & マテリアル
@@ -549,11 +559,13 @@ scene.add(meshGroup);
 
 var bboxHelper = null;
 
+// 上面・下面とも同じ色（スレートブルー、mono labo の青と調和）
+const MODEL_COLOR = 0x8b9bb0;
 const matOuter = new THREE.MeshPhongMaterial({
-  color: 0x7788aa, specular: 0xffffff, shininess: 80, side: THREE.DoubleSide
+  color: MODEL_COLOR, specular: 0xffffff, shininess: 60, side: THREE.DoubleSide
 });
 const matInner = new THREE.MeshPhongMaterial({
-  color: 0x4488bb, specular: 0xffffff, shininess: 60, side: THREE.DoubleSide
+  color: MODEL_COLOR, specular: 0xffffff, shininess: 60, side: THREE.DoubleSide
 });
 
 // ============================================================
@@ -736,47 +748,6 @@ function buildCageWall(outerR, innerR, yBottom, yTop, barW, slotSize) {
         meshGroup.add(new THREE.Mesh(geo, matOuter));
       }
     }
-  }
-}
-
-// ============================================================
-//  外周フック（尖った突起・放射方向）の構築
-// ============================================================
-function buildHooks(outerR, holeR, thickness, count, hookH, hookBaseR) {
-  if (count < 1 || hookH < 0.1 || hookBaseR < 0.1) return;
-
-  // 底面全体が rim 材料内に密着するよう配置:
-  //   底面コーナー（半径方向の最遠点）がリム外周より少し内側に来るよう、
-  //   底面中心を embed 量だけ内側に押し込む
-  //   → placeR = sqrt(outerR² - hookBaseR²) - embed
-  //   embed の分だけ円錐がリム内部に重なり、非多様体（同一面）を回避できる
-  const embed = 0.3;
-  const placeR = Math.max(
-    holeR + 0.1,
-    Math.sqrt(Math.max(0, outerR * outerR - hookBaseR * hookBaseR)) - embed
-  );
-
-  // 縦方向：底面がリムの Y 範囲内に収まるよう中央付近に配置
-  //   hookBaseR が thickness/2 を超える場合は端まで寄せる
-  let baseCenterY = thickness / 2;
-  if (hookBaseR < thickness / 2) {
-    baseCenterY = thickness / 2;  // リム中央
-  } else {
-    baseCenterY = hookBaseR;       // 下端を Y=0 に寄せる
-  }
-
-  for (let i = 0; i < count; i++) {
-    const angle = (i / count) * Math.PI * 2;
-
-    const cone = new THREE.ConeGeometry(hookBaseR, hookH, 16);
-    // ConeGeometry のデフォルト軸（+Y）を +X 軸（径方向）に倒す
-    cone.rotateZ(-Math.PI / 2);
-    // 軸が +X になった状態で、底面が X=placeR、Y=baseCenterY、Z=0 に来るよう移動
-    cone.translate(placeR + hookH / 2, baseCenterY, 0);
-    // Y 軸回りに回転して周方向の位置を決定
-    cone.rotateY(angle);
-
-    meshGroup.add(new THREE.Mesh(cone, matOuter));
   }
 }
 
@@ -1056,18 +1027,9 @@ function buildMesh() {
     buildCenterBump(bumpR, bumpH, bottomTopY, barW, slotSize, meshOn);
   }
 
-  // -- 外周フック（ネット引っかけ用突起）--
-  const hooksOn = document.getElementById('hooksOn').checked;
-  if (hooksOn) {
-    const hookCount = parseInt(document.getElementById('hookCount').value);
-    const hookH     = parseFloat(document.getElementById('hookH').value);
-    const hookBaseR = parseFloat(document.getElementById('hookD').value) / 2;
-    buildHooks(outerR, holeR, thickness, hookCount, hookH, hookBaseR);
-  }
-
   // -- バウンディングボックス --
   const bb = new THREE.Box3().setFromObject(meshGroup);
-  bboxHelper = new THREE.Box3Helper(bb, 0x2ecc71);
+  bboxHelper = new THREE.Box3Helper(bb, 0x0071e3);
   scene.add(bboxHelper);
 
   const size = new THREE.Vector3();
@@ -1081,15 +1043,14 @@ function buildMesh() {
 //  スライダー イベント
 // ============================================================
 ['outerD', 'thickness', 'holeD', 'holeDepth', 'barW', 'slotSize',
- 'bumpD', 'bumpH', 'hookCount', 'hookH', 'hookD'].forEach(id => {
+ 'bumpD', 'bumpH'].forEach(id => {
   const el    = document.getElementById(id);
   const valEl = document.getElementById('val-' + id);
   el.addEventListener('input', () => { valEl.textContent = el.value; buildMesh(); });
 });
 
-document.getElementById('meshOn') .addEventListener('change', buildMesh);
-document.getElementById('bumpOn') .addEventListener('change', buildMesh);
-document.getElementById('hooksOn').addEventListener('change', buildMesh);
+document.getElementById('meshOn').addEventListener('change', buildMesh);
+document.getElementById('bumpOn').addEventListener('change', buildMesh);
 
 document.getElementById('btn-update').addEventListener('click', buildMesh);
 

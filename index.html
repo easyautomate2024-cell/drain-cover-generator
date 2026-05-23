@@ -110,12 +110,12 @@
       border-radius: 980px; font-size: 13px; font-weight: 600;
       cursor: pointer; transition: filter 0.2s, background 0.2s;
     }
-    #btn-update {
+    #btn-update, #btn-fit {
       background: var(--bg);
       color: var(--text);
       border: 1px solid var(--border2);
     }
-    #btn-update:hover { background: #ececef; }
+    #btn-update:hover, #btn-fit:hover { background: #ececef; }
     #btn-download {
       background: var(--accent);
       color: #ffffff;
@@ -129,7 +129,11 @@
     }
 
     /* ========== 3Dビューワー ========== */
-    #viewer { flex: 1; position: relative; background: var(--bg); }
+    #viewer {
+      flex: 1; position: relative;
+      /* Fusion 360 風のほぼ白い背景（縦グラデ）— CSS なのでトーンマッピングの影響を受けない */
+      background: linear-gradient(180deg, #ffffff 0%, #fcfcfd 70%, #f3f4f6 100%);
+    }
     #viewer canvas { display: block; }
 
     #axis-label {
@@ -337,9 +341,16 @@
     <div class="bbox-row"><span>幅 (X)</span><span class="bbox-val" id="bb-x">100.0 mm</span></div>
     <div class="bbox-row"><span>奥行 (Y)</span><span class="bbox-val" id="bb-y">100.0 mm</span></div>
     <div class="bbox-row"><span>高さ (Z)</span><span class="bbox-val" id="bb-z">5.0 mm</span></div>
+    <div class="bbox-row" style="margin-top:8px;">
+      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
+        <input type="checkbox" id="bboxOn" checked style="accent-color: #0071e3;">
+        ボックス枠を表示
+      </label>
+    </div>
   </div>
 
   <button id="btn-update">🔄 形状を更新</button>
+  <button id="btn-fit">🎯 全体表示</button>
   <button id="btn-download">⬇ STL ダウンロード</button>
 
   <div id="guide">
@@ -505,13 +516,18 @@ function SimpleOrbitControls(camera, domElement) {
 //  シーンセットアップ
 // ============================================================
 const viewer   = document.getElementById('viewer');
-const renderer = new THREE.WebGLRenderer({ antialias: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
 renderer.setPixelRatio(window.devicePixelRatio);
+renderer.setClearColor(0x000000, 0);   // 透明クリア → CSS 背景が見える
 renderer.shadowMap.enabled = true;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.0;
 viewer.appendChild(renderer.domElement);
 
 const scene = new THREE.Scene();
-scene.background = new THREE.Color(0xf5f5f7);   // mono labo --bg
+// 背景は CSS（#viewer の linear-gradient）で描画 — トーンマッピングの影響を受けず純白を出せる
+// scene.background は設定しない
 
 // カメラ（位置を先に設定）
 const camera = new THREE.PerspectiveCamera(45, 1, 0.1, 5000);
@@ -522,20 +538,51 @@ camera.lookAt(0, 5, 0);
 const orbitControls = new SimpleOrbitControls(camera, renderer.domElement);
 orbitControls.target.set(0, 5, 0);
 
-// ライティング（明るい背景でも形状が見えるように調整）
-scene.add(new THREE.AmbientLight(0xffffff, 0.7));
-const dirLight = new THREE.DirectionalLight(0xffffff, 0.85);
-dirLight.position.set(150, 200, 100);
-scene.add(dirLight);
-const fillLight = new THREE.DirectionalLight(0xc7d4e0, 0.25);
-fillLight.position.set(-100, -80, -100);
+// Fusion 360 風ライティング — 上からの光を強く、下は暗めにして陰影をはっきり出す
+// 半球光：上＝白、下＝暗いグレーで擬似 AO（隙間の影）
+scene.add(new THREE.HemisphereLight(0xffffff, 0x4a4640, 0.55));
+// 弱めのアンビエントで完全な黒は避ける
+scene.add(new THREE.AmbientLight(0xffffff, 0.15));
+// メインキーライト（真上やや前から）— 上面と側面の明暗差を生む
+const keyLight = new THREE.DirectionalLight(0xffffff, 0.75);
+keyLight.position.set(80, 320, 100);
+scene.add(keyLight);
+// 弱いフィルライト（反対側）
+const fillLight = new THREE.DirectionalLight(0xffffff, 0.15);
+fillLight.position.set(-180, 80, -120);
 scene.add(fillLight);
 
-// グリッド & 軸（背景に溶け込む控えめな色）
-const gridHelper = new THREE.GridHelper(400, 40, 0xebebed, 0xebebed);
-gridHelper.material.opacity = 0.55;
-gridHelper.material.transparent = true;
-scene.add(gridHelper);
+// Fusion 360 風コンタクトシャドウ（モデル直下にきゅっと締まった楕円影）
+let shadowPlane = null;
+(function addContactShadow() {
+  const S = 512;
+  const cnv = document.createElement('canvas');
+  cnv.width = S; cnv.height = S;
+  const ctx = cnv.getContext('2d');
+  // 中心が濃く、外側 60% で完全に消える — シャープめのソフト影
+  const g = ctx.createRadialGradient(S/2, S/2, S*0.20, S/2, S/2, S*0.48);
+  g.addColorStop(0.00, 'rgba(30,32,38,0.45)');
+  g.addColorStop(0.55, 'rgba(30,32,38,0.18)');
+  g.addColorStop(1.00, 'rgba(30,32,38,0.00)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, S, S);
+  const tex = new THREE.CanvasTexture(cnv);
+  tex.encoding = THREE.sRGBEncoding;
+  const mat = new THREE.MeshBasicMaterial({
+    map: tex, transparent: true, depthWrite: false
+  });
+  // 初期サイズ。後で buildMesh からモデル外径に合わせて更新
+  const geo = new THREE.PlaneGeometry(1, 1);
+  shadowPlane = new THREE.Mesh(geo, mat);
+  shadowPlane.rotation.x = -Math.PI / 2;
+  shadowPlane.position.y = 0.02;
+  shadowPlane.renderOrder = -1;
+  shadowPlane.scale.set(200, 200, 1);
+  scene.add(shadowPlane);
+})();
+
+// グリッドは Fusion 360 のデフォルトビューに合わせて非表示
+// （必要なら後で表示切替を追加できる）
 
 const axesHelper = new THREE.AxesHelper(60);
 axesHelper.material.opacity = 0.6;
@@ -559,14 +606,48 @@ scene.add(meshGroup);
 
 var bboxHelper = null;
 
-// 上面・下面とも同じ色（スレートブルー、mono labo の青と調和）
-const MODEL_COLOR = 0x8b9bb0;
-const matOuter = new THREE.MeshPhongMaterial({
-  color: MODEL_COLOR, specular: 0xffffff, shininess: 60, side: THREE.DoubleSide
+// Fusion 360 デフォルト風：暖色マットなタウペグレー
+// 完全に non-metal、roughness 高めで「マットなプラ／無塗装金属」感
+const MODEL_COLOR = 0x252119;   // 暖色寄りのより深いダークタウペ
+const matOuter = new THREE.MeshStandardMaterial({
+  color:     MODEL_COLOR,
+  metalness: 0.0,
+  roughness: 0.85,
+  side:      THREE.DoubleSide,
+  flatShading: false,
 });
-const matInner = new THREE.MeshPhongMaterial({
-  color: MODEL_COLOR, specular: 0xffffff, shininess: 60, side: THREE.DoubleSide
+const matInner = new THREE.MeshStandardMaterial({
+  color:     MODEL_COLOR,
+  metalness: 0.0,
+  roughness: 0.85,
+  side:      THREE.DoubleSide,
+  flatShading: false,
 });
+
+// エッジライン — Fusion 360 はエッジ線無しのスムーズシェーディングなので非表示
+const edgeMat = new THREE.LineBasicMaterial({
+  color: 0x3a3833, transparent: true, opacity: 0.0
+});
+
+// meshGroup の全 Mesh にエッジラインを重ねる（buildMesh の最後に呼ぶ）
+function addEdgeLines(group, thresholdDeg = 25) {
+  const toAdd = [];
+  group.traverse(obj => {
+    if (obj.isMesh && obj.geometry) {
+      const edges = new THREE.EdgesGeometry(obj.geometry, thresholdDeg);
+      const line  = new THREE.LineSegments(edges, edgeMat);
+      line.userData.isEdgeLine = true;
+      // mesh と同じローカル変換に乗せるため、mesh の親にぶら下げる
+      toAdd.push({ parent: obj.parent || group, line, refMesh: obj });
+    }
+  });
+  toAdd.forEach(({ parent, line, refMesh }) => {
+    line.position.copy(refMesh.position);
+    line.quaternion.copy(refMesh.quaternion);
+    line.scale.copy(refMesh.scale);
+    parent.add(line);
+  });
+}
 
 // ============================================================
 //  メッシュ穴あき円盤の構築（凹底面・凸天面 共通）
@@ -1027,9 +1108,32 @@ function buildMesh() {
     buildCenterBump(bumpR, bumpH, bottomTopY, barW, slotSize, meshOn);
   }
 
-  // -- バウンディングボックス --
+  // Fusion 360 はエッジ線なしのスムーズシェーディングなのでスキップ
+  // addEdgeLines(meshGroup, 25);
+
+  // -- モデル全体を持ち上げる：
+  //    凹み深さ最大時に底面が Y=0 に来るよう、lift = holeDepth_max - thickness
+  const holeDepthMax = parseFloat(document.getElementById('holeDepth').max);
+  const lift = holeDepthMax - thickness;
+  meshGroup.position.y = lift;
+
+  // OrbitControls のターゲットもモデル中心高さに追従
+  orbitControls.target.set(0, lift + thickness / 2, 0);
+
+  // -- 接地影をモデル外径に合わせて更新（直径の約 1.5 倍が自然）--
+  if (shadowPlane) {
+    const s = outerR * 3.0;   // = 直径 × 1.5
+    shadowPlane.scale.set(s, s, 1);
+  }
+
+  // -- バウンディングボックス（はっきり見える濃い青）--
   const bb = new THREE.Box3().setFromObject(meshGroup);
   bboxHelper = new THREE.Box3Helper(bb, 0x0071e3);
+  bboxHelper.material.transparent = true;
+  bboxHelper.material.opacity = 0.95;
+  bboxHelper.material.depthTest = false;   // 手前に常に表示
+  bboxHelper.renderOrder = 999;
+  bboxHelper.visible = document.getElementById('bboxOn').checked;
   scene.add(bboxHelper);
 
   const size = new THREE.Vector3();
@@ -1278,11 +1382,13 @@ async function exportSTLClean() {
     }
 
     // 一括押し出し → Y軸を上に → Y範囲を [yBot, yTop] に
+    // （meshGroup の lift offset も加算して STL 座標を視覚化と一致させる）
     const cs   = CrossSection.ofPolygons(polygons);
     const disk = cs.extrude(t);
     cs.delete();
 
-    const positioned = disk.rotate([-90, 0, 0]).translate([0, yBot, 0]);
+    const liftY = meshGroup.position.y || 0;
+    const positioned = disk.rotate([-90, 0, 0]).translate([0, yBot + liftY, 0]);
     disk.delete();
     return positioned;
   }
@@ -1523,6 +1629,45 @@ function onResize() {
 
 window.addEventListener('resize', onResize);
 
+// ============================================================
+//  全体表示（モデルが画面に収まる位置にカメラを移動）
+// ============================================================
+function fitToView(margin = 1.25) {
+  const bb = new THREE.Box3().setFromObject(meshGroup);
+  if (bb.isEmpty()) return;
+  const size   = new THREE.Vector3(); bb.getSize(size);
+  const center = new THREE.Vector3(); bb.getCenter(center);
+
+  // モデルを内包する球の半径
+  const radius = 0.5 * Math.max(size.x, size.y, size.z);
+
+  // 視野角と画面アスペクトを考慮した必要距離
+  const fovY  = camera.fov * Math.PI / 180;
+  const fovX  = 2 * Math.atan(Math.tan(fovY / 2) * camera.aspect);
+  const dist  = margin * radius / Math.sin(Math.min(fovY, fovX) / 2);
+
+  // 現在の視線方向を維持してカメラを再配置
+  const dir = new THREE.Vector3().subVectors(camera.position, orbitControls.target);
+  // 初回などで dir が極端に小さい/方向不定なら標準アイソメ視点を採用
+  if (dir.lengthSq() < 1e-6) dir.set(1, 0.85, 1.4);
+  dir.normalize().multiplyScalar(dist);
+
+  orbitControls.target.copy(center);
+  camera.position.copy(center).add(dir);
+  camera.near = Math.max(0.1, dist / 100);
+  camera.far  = dist * 100;
+  camera.updateProjectionMatrix();
+  camera.lookAt(center);
+}
+
+// ボックス枠の表示 ON/OFF
+document.getElementById('bboxOn').addEventListener('change', (e) => {
+  if (bboxHelper) bboxHelper.visible = e.target.checked;
+});
+
+// 全体表示ボタン
+document.getElementById('btn-fit').addEventListener('click', () => fitToView());
+
 function animate() {
   requestAnimationFrame(animate);
   renderer.render(scene, camera);
@@ -1532,6 +1677,7 @@ function animate() {
 requestAnimationFrame(() => {
   onResize();
   buildMesh();
+  fitToView();      // 初期表示でモデルが画面に収まるように
   animate();
 });
 </script>

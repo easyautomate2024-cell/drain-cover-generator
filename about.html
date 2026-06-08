@@ -131,8 +131,8 @@
     .step h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
     .step p { color: var(--muted); font-size: 14px; }
 
-    /* ===== 画像 ===== */
-    figure {
+    /* ===== ライブ埋め込み ===== */
+    .live-embed {
       margin: 24px 0;
       background: var(--bg-white);
       border: 1px solid var(--border);
@@ -140,26 +140,21 @@
       overflow: hidden;
       box-shadow: var(--card-shadow);
     }
-    figure img {
-      width: 100%; height: auto; display: block;
-      background: #fafafa;
+    .live-embed iframe {
+      width: 100%; height: 540px; border: none; display: block;
+      background: #ffffff;
     }
-    figure .placeholder {
-      aspect-ratio: 16 / 9;
-      display: flex; flex-direction: column;
-      align-items: center; justify-content: center;
-      background: linear-gradient(180deg, #fafbfc 0%, #f0f2f5 100%);
-      color: var(--muted); font-size: 13px;
-      gap: 6px;
-    }
-    figure .placeholder .ph-icon { font-size: 36px; opacity: 0.4; }
-    figure .placeholder code {
-      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
-      font-size: 11px; background: rgba(0,0,0,0.04); padding: 2px 6px; border-radius: 4px;
-    }
-    figcaption {
+    .live-embed .live-caption {
       padding: 12px 18px; font-size: 12px; color: var(--muted);
       border-top: 1px solid var(--border); background: var(--bg);
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    }
+    .live-embed .live-caption a {
+      color: var(--accent); text-decoration: none; font-weight: 600;
+    }
+    .live-embed .live-caption a:hover { text-decoration: underline; }
+    @media (max-width: 640px) {
+      .live-embed iframe { height: 420px; }
     }
 
     /* ===== 断面図（SVG）===== */
@@ -276,14 +271,13 @@
   <p class="section-lead">
     既製品のドレンカバーが合わない、サイズ感を変えたい、髪の毛・ゴミの捕集効率を上げたい——そんなときに、自分の浴室の寸法に合わせて 1 枚だけ 3D プリントできるよう設計しました。
   </p>
-  <figure>
-    <div class="placeholder">
-      <span class="ph-icon">🖼</span>
-      <span>メイン画面のスクリーンショット</span>
-      <code>images/screenshot-main.png</code>
+  <div class="live-embed">
+    <iframe src="./index.html" title="Drain Cover Generator ライブデモ" loading="lazy"></iframe>
+    <div class="live-caption">
+      <span>👆 上の埋め込みは実際に動くツールです。スライダーを動かして試せます。</span>
+      <a href="./index.html">フル画面で開く →</a>
     </div>
-    <figcaption>左サイドパネルでスライダー調整、右側で 3D ビュー回転・ズーム。</figcaption>
-  </figure>
+  </div>
 </section>
 
 <!-- ===== 特徴 ===== -->
@@ -342,15 +336,7 @@
       <div class="num">2</div>
       <div>
         <h3>パラメータ調整</h3>
-        <p>サイドパネルのスライダーを動かすと、3D ビューが即時更新されます。下記の<a href="#parameters">パラメータ一覧</a>を参考にしてください。</p>
-        <figure>
-          <div class="placeholder">
-            <span class="ph-icon">🖼</span>
-            <span>パラメータ調整中のスクリーンショット</span>
-            <code>images/screenshot-sliders.png</code>
-          </div>
-          <figcaption>スライダー操作で形状がリアルタイムに変化。</figcaption>
-        </figure>
+        <p>サイドパネルのスライダーを動かすと、3D ビューが即時更新されます。下記の<a href="#parameters">パラメータ一覧</a>を参考にしてください。上部の埋め込みデモでも操作を試せます。</p>
       </div>
     </div>
 
@@ -359,14 +345,6 @@
       <div>
         <h3>STL ダウンロード &amp; 3D プリント</h3>
         <p>「⬇ STL ダウンロード」を押すと、現在の形状の STL ファイルが生成されます。スライサー（Bambu Studio / PrusaSlicer / Cura など）にドラッグして印刷してください。</p>
-        <figure>
-          <div class="placeholder">
-            <span class="ph-icon">🖼</span>
-            <span>3D プリント完成品の写真</span>
-            <code>images/photo-printed.jpg</code>
-          </div>
-          <figcaption>実際にプリントしたサンプル。</figcaption>
-        </figure>
       </div>
     </div>
   </div>

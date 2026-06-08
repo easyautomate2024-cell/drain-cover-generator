@@ -1625,6 +1625,11 @@ function animate() {
   renderer.render(scene, camera);
 }
 
+// デバッグ／キャプチャ用：renderer / scene / camera を window に露出
+window.__renderer = renderer;
+window.__scene    = scene;
+window.__camera   = camera;
+
 // ページレイアウトが確定してから初期化
 requestAnimationFrame(() => {
   onResize();

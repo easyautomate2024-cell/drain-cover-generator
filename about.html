@@ -302,7 +302,7 @@
     </div>
     <div class="feature">
       <span class="icon">⛰</span>
-      <h3>中央凸（オプション）</h3>
+      <h3>ヘアキャッチャー（オプション）</h3>
       <p>凹みの中央に網目付きのキャップ状凸部を追加。ヘアキャッチャー機能を高めます。</p>
     </div>
     <div class="feature">
@@ -363,36 +363,18 @@
       <line x1="60" y1="300" x2="660" y2="300" stroke="#c8cdd2" stroke-width="1" stroke-dasharray="4,4"/>
       <text x="60" y="316" font-size="11" fill="#888c92" font-family="ui-monospace,monospace">Y = 0 (床面)</text>
 
-      <!-- ===== 蓋本体の断面（中空の中央凸を含む単一パス／fill-rule="evenodd"）===== -->
-      <!-- 外側ループ：外周リム → 凹み内壁 → 凹み底 → 中央凸の外壁を上下 → 凹み底
-           → 凹み内壁 → 外周リム → リム外側 → ドレンチューブ → 底面 → リム外側
-           内側ループ（穴）：中央凸の内壁を逆向きでトレース → 中空空間ができる -->
-      <path fill-rule="evenodd" fill="#7a736b" stroke="#3a342e" stroke-width="1.2" stroke-linejoin="miter" d="
-        M 110 100
-        L 220 100
-        L 220 270
-        L 320 270
-        L 320 220
-        L 400 220
-        L 400 270
-        L 500 270
-        L 500 100
-        L 610 100
-        L 610 130
-        L 510 130
-        L 510 280
-        L 210 280
-        L 210 130
-        L 110 130
-        Z
-        M 330 270
-        L 390 270
-        L 390 230
-        L 330 230
-        Z"/>
+      <!-- ===== 蓋本体の断面 =====
+           3 つの独立した部位を 1 つの <path> 内に subpath として配置：
+             1. 左側アセンブリ（左リム + 左ドレン壁 + 左底板）
+             2. 右側アセンブリ（右リム + 右ドレン壁 + 右底板）
+             3. ヘアキャッチャー（中空の逆 U 字、下方向は底板に穴が開くため何も無い） -->
+      <path fill="#7a736b" stroke="#3a342e" stroke-width="1.2" stroke-linejoin="miter" d="
+        M 110 100 L 220 100 L 220 270 L 320 270 L 320 280 L 210 280 L 210 130 L 110 130 Z
+        M 500 100 L 610 100 L 610 130 L 510 130 L 510 280 L 400 280 L 400 270 L 500 270 Z
+        M 320 220 L 400 220 L 400 270 L 390 270 L 390 230 L 330 230 L 330 270 L 320 270 Z"/>
 
-      <!-- 中央凸の位置ラベル（中空空間の中に配置）-->
-      <text x="360" y="254" text-anchor="middle" font-size="10" fill="#888279" font-family="system-ui,sans-serif" font-style="italic">中央凸（中空）</text>
+      <!-- ヘアキャッチャー位置のラベル（逆 U 字の中空内）-->
+      <text x="360" y="254" text-anchor="middle" font-size="10" fill="#888279" font-family="system-ui,sans-serif" font-style="italic">ヘアキャッチャー（中空）</text>
 
       <!-- ===== 寸法線（基本：青）===== -->
       <!-- 外径 outerD -->
@@ -427,7 +409,7 @@
       </g>
       <text x="648" y="190" font-size="12" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">凹み深さ</text>
 
-      <!-- ===== 寸法線（中央凸：緑）===== -->
+      <!-- ===== 寸法線（ヘアキャッチャー：緑）===== -->
       <!-- bumpD -->
       <g stroke="#27ae60" stroke-width="1" fill="none">
         <line x1="320" y1="208" x2="400" y2="208"/>
@@ -450,7 +432,7 @@
         <text x="180" y="200" font-style="italic" text-anchor="end">ドレン</text>
         <text x="180" y="213" font-style="italic" text-anchor="end">チューブ壁</text>
         <line x1="183" y1="207" x2="212" y2="200" stroke="#5a5048" stroke-width="0.5"/>
-        <text x="215" y="295" font-style="italic">凹み底（メッシュ）</text>
+        <text x="215" y="295" font-style="italic">凹み底板（メッシュ・中央に穴）</text>
       </g>
 
       <!-- ===== 凡例 ===== -->
@@ -460,7 +442,7 @@
         <line x1="160" y1="351" x2="180" y2="351" stroke="#0071e3" stroke-width="2"/>
         <text x="188" y="355" fill="#1d1d1f">基本寸法</text>
         <line x1="270" y1="351" x2="290" y2="351" stroke="#27ae60" stroke-width="2"/>
-        <text x="298" y="355" fill="#1d1d1f">中央凸（オプション）</text>
+        <text x="298" y="355" fill="#1d1d1f">ヘアキャッチャー（オプション）</text>
       </g>
     </svg>
   </div>
@@ -522,7 +504,7 @@
         <td>OFF にするとソリッドな円盤になります（排水機能なし）。</td>
       </tr>
       <tr>
-        <td rowspan="3">中央凸（オプション）</td>
+        <td rowspan="3">ヘアキャッチャー（オプション）</td>
         <td class="name">bumpOn</td>
         <td class="range">ON / OFF</td>
         <td>OFF</td>
@@ -532,13 +514,13 @@
         <td class="name">bumpD</td>
         <td class="range">5 – 100 mm</td>
         <td>25 mm</td>
-        <td>中央凸の直径。底面はこの直径でくり抜かれます。</td>
+        <td>ヘアキャッチャーの直径。底面はこの直径でくり抜かれます。</td>
       </tr>
       <tr>
         <td class="name">bumpH</td>
         <td class="range">1 – 50 mm</td>
         <td>8 mm</td>
-        <td>中央凸の高さ。凹み深さよりも低めに設定すると清掃しやすい。</td>
+        <td>ヘアキャッチャーの高さ。凹み深さよりも低めに設定すると清掃しやすい。</td>
       </tr>
     </tbody>
   </table>

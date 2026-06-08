@@ -356,83 +356,95 @@
   <p class="section-lead">各スライダーが形状のどの部分に対応するかを断面図で示します。</p>
 
   <div class="diagram-wrap">
-    <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="diagram-title">
-      <title id="diagram-title">Drain Cover 断面図</title>
+    <svg viewBox="0 0 720 380" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="diagram-title">
+      <title id="diagram-title">Drain Cover 断面図（凹みが深いケース：底部がドレンチューブとして突出）</title>
 
-      <!-- 床面（影） -->
-      <line x1="60" y1="290" x2="660" y2="290" stroke="#c8cdd2" stroke-width="1" stroke-dasharray="4,4"/>
-      <text x="60" y="306" font-size="11" fill="#888c92" font-family="ui-monospace,monospace">Y = 0 (床面)</text>
+      <!-- 床面 (Y=0) -->
+      <line x1="60" y1="300" x2="660" y2="300" stroke="#c8cdd2" stroke-width="1" stroke-dasharray="4,4"/>
+      <text x="60" y="316" font-size="11" fill="#888c92" font-family="ui-monospace,monospace">Y = 0 (床面)</text>
 
-      <!-- 蓋本体（断面：左半分 + 右半分） -->
-      <!-- 外周リム（左側） -->
-      <path d="M 110 200 L 110 230 L 240 230 L 240 200 Z" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
-      <!-- 凹み底（左下に伸びる） -->
-      <path d="M 240 230 L 240 270 L 280 270 L 280 230 Z" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
-      <!-- 中央凸 -->
-      <path d="M 340 230 L 340 190 L 380 190 L 380 230 Z" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
-      <!-- 凹み底（右側に伸びる） -->
-      <path d="M 440 230 L 440 270 L 480 270 L 480 230 Z" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
-      <!-- 外周リム（右側） -->
-      <path d="M 480 200 L 480 230 L 610 230 L 610 200 Z" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
-      <!-- 底面結合（薄く） -->
-      <path d="M 280 270 L 440 270 L 440 250 L 280 250 Z" fill="#9b938a" stroke="#3a342e" stroke-width="0.5"/>
+      <!-- ===== 蓋本体の断面 ===== -->
+      <!-- 外周リム（左：上の平らな部分） -->
+      <rect x="110" y="100" width="110" height="30" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
+      <!-- 外周リム（右） -->
+      <rect x="500" y="100" width="110" height="30" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
+      <!-- 左ドレンチューブ壁（リム内側からぶら下がる） -->
+      <rect x="210" y="130" width="10" height="140" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
+      <!-- 右ドレンチューブ壁 -->
+      <rect x="500" y="130" width="10" height="140" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
+      <!-- 凹み底（網目穴付きの円盤）-->
+      <rect x="210" y="270" width="300" height="10" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
+      <!-- 中央凸（オプション、凹み底に立つ） -->
+      <rect x="320" y="220" width="80" height="50" fill="#9b938a" stroke="#3a342e" stroke-width="1"/>
+      <text x="360" y="252" text-anchor="middle" font-size="11" fill="#3a342e" font-family="system-ui,sans-serif">中央凸</text>
 
-      <!-- 寸法線：外径 -->
+      <!-- ===== 寸法線（基本：青）===== -->
+      <!-- 外径 outerD -->
       <g stroke="#0071e3" stroke-width="1" fill="none">
-        <line x1="110" y1="170" x2="610" y2="170"/>
-        <line x1="110" y1="165" x2="110" y2="175"/>
-        <line x1="610" y1="165" x2="610" y2="175"/>
+        <line x1="110" y1="60" x2="610" y2="60"/>
+        <line x1="110" y1="55" x2="110" y2="100"/>
+        <line x1="610" y1="55" x2="610" y2="100"/>
       </g>
-      <text x="360" y="160" text-anchor="middle" font-size="13" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">外径 outerD</text>
+      <text x="360" y="51" text-anchor="middle" font-size="13" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">外径 outerD</text>
 
-      <!-- 寸法線：凹み直径 -->
+      <!-- 凹み直径 holeD -->
       <g stroke="#0071e3" stroke-width="1" fill="none">
-        <line x1="240" y1="142" x2="480" y2="142"/>
-        <line x1="240" y1="137" x2="240" y2="147"/>
-        <line x1="480" y1="137" x2="480" y2="147"/>
+        <line x1="220" y1="80" x2="500" y2="80"/>
+        <line x1="220" y1="78" x2="220" y2="100"/>
+        <line x1="500" y1="78" x2="500" y2="100"/>
       </g>
-      <text x="360" y="132" text-anchor="middle" font-size="13" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">凹み直径 holeD</text>
+      <text x="360" y="74" text-anchor="middle" font-size="13" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">凹み直径 holeD</text>
 
-      <!-- 寸法線：厚み（左外側）-->
+      <!-- 厚み thickness（左外側）-->
       <g stroke="#0071e3" stroke-width="1" fill="none">
-        <line x1="85" y1="200" x2="85" y2="230"/>
-        <line x1="80" y1="200" x2="90" y2="200"/>
-        <line x1="80" y1="230" x2="90" y2="230"/>
+        <line x1="85" y1="100" x2="85" y2="130"/>
+        <line x1="83" y1="100" x2="110" y2="100"/>
+        <line x1="83" y1="130" x2="110" y2="130"/>
       </g>
-      <text x="40" y="219" font-size="12" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">厚み</text>
+      <text x="32" y="119" font-size="12" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">厚み</text>
 
-      <!-- 寸法線：凹み深さ（左内側）-->
+      <!-- 凹み深さ holeDepth（右外側）-->
       <g stroke="#0071e3" stroke-width="1" fill="none">
-        <line x1="260" y1="200" x2="260" y2="270"/>
-        <line x1="255" y1="200" x2="265" y2="200"/>
-        <line x1="255" y1="270" x2="265" y2="270"/>
+        <line x1="640" y1="100" x2="640" y2="270"/>
+        <line x1="610" y1="100" x2="642" y2="100"/>
+        <line x1="510" y1="270" x2="642" y2="270"/>
       </g>
-      <text x="265" y="245" font-size="12" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">凹み深さ</text>
+      <text x="648" y="190" font-size="12" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">凹み深さ</text>
 
-      <!-- 寸法線：中央凸 直径 -->
+      <!-- ===== 寸法線（中央凸：緑）===== -->
+      <!-- bumpD -->
       <g stroke="#27ae60" stroke-width="1" fill="none">
-        <line x1="340" y1="180" x2="380" y2="180"/>
-        <line x1="340" y1="175" x2="340" y2="185"/>
-        <line x1="380" y1="175" x2="380" y2="185"/>
+        <line x1="320" y1="208" x2="400" y2="208"/>
+        <line x1="320" y1="206" x2="320" y2="220"/>
+        <line x1="400" y1="206" x2="400" y2="220"/>
       </g>
-      <text x="360" y="172" text-anchor="middle" font-size="11" fill="#27ae60" font-weight="600" font-family="ui-monospace,monospace">bumpD</text>
+      <text x="360" y="202" text-anchor="middle" font-size="11" fill="#27ae60" font-weight="600" font-family="ui-monospace,monospace">bumpD</text>
 
-      <!-- 寸法線：中央凸 高さ -->
+      <!-- bumpH -->
       <g stroke="#27ae60" stroke-width="1" fill="none">
-        <line x1="395" y1="190" x2="395" y2="230"/>
-        <line x1="390" y1="190" x2="400" y2="190"/>
-        <line x1="390" y1="230" x2="400" y2="230"/>
+        <line x1="412" y1="220" x2="412" y2="270"/>
+        <line x1="400" y1="220" x2="414" y2="220"/>
+        <line x1="400" y1="270" x2="414" y2="270"/>
       </g>
-      <text x="403" y="214" font-size="11" fill="#27ae60" font-weight="600" font-family="ui-monospace,monospace">bumpH</text>
+      <text x="418" y="248" font-size="11" fill="#27ae60" font-weight="600" font-family="ui-monospace,monospace">bumpH</text>
 
-      <!-- 凡例 -->
+      <!-- ===== ラベル：各部位 ===== -->
+      <g font-family="system-ui, sans-serif" font-size="10" fill="#5a5048">
+        <text x="113" y="148" font-style="italic">外周リム</text>
+        <text x="180" y="200" font-style="italic" text-anchor="end">ドレン</text>
+        <text x="180" y="213" font-style="italic" text-anchor="end">チューブ壁</text>
+        <line x1="183" y1="207" x2="212" y2="200" stroke="#5a5048" stroke-width="0.5"/>
+        <text x="215" y="295" font-style="italic">凹み底（メッシュ）</text>
+      </g>
+
+      <!-- ===== 凡例 ===== -->
       <g font-family="system-ui, sans-serif" font-size="11">
-        <rect x="60" y="325" width="14" height="10" fill="#7a736b" stroke="#3a342e"/>
-        <text x="80" y="334" fill="#1d1d1f">蓋本体</text>
-        <line x1="160" y1="330" x2="180" y2="330" stroke="#0071e3" stroke-width="2"/>
-        <text x="188" y="334" fill="#1d1d1f">基本寸法</text>
-        <line x1="260" y1="330" x2="280" y2="330" stroke="#27ae60" stroke-width="2"/>
-        <text x="288" y="334" fill="#1d1d1f">中央凸（オプション）</text>
+        <rect x="60" y="346" width="14" height="10" fill="#7a736b" stroke="#3a342e"/>
+        <text x="80" y="355" fill="#1d1d1f">蓋本体</text>
+        <line x1="160" y1="351" x2="180" y2="351" stroke="#0071e3" stroke-width="2"/>
+        <text x="188" y="355" fill="#1d1d1f">基本寸法</text>
+        <line x1="270" y1="351" x2="290" y2="351" stroke="#27ae60" stroke-width="2"/>
+        <text x="298" y="355" fill="#1d1d1f">中央凸（オプション）</text>
       </g>
     </svg>
   </div>

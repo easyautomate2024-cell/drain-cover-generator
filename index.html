@@ -87,35 +87,18 @@
 
     .param-row input[type="checkbox"] { accent-color: var(--accent); }
 
-    /* ========== バウンディングボックス ========== */
-    #bbox {
-      background: var(--bg);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 10px 12px;
-      font-size: 12px;
-      line-height: 1.8;
-    }
-    #bbox .bbox-title {
-      font-size: 11px; font-weight: 600; color: var(--muted);
-      text-transform: uppercase; letter-spacing: 1px; margin-bottom: 6px;
-    }
-    #bbox .bbox-row { display: flex; justify-content: space-between; }
-    #bbox .bbox-row span:first-child { color: var(--text); }
-    #bbox .bbox-val { color: var(--accent); font-weight: 600; }
-
     /* ========== ボタン ========== */
     button {
       width: 100%; padding: 10px; border: none;
       border-radius: 980px; font-size: 13px; font-weight: 600;
       cursor: pointer; transition: filter 0.2s, background 0.2s;
     }
-    #btn-update, #btn-fit {
+    #btn-fit {
       background: var(--bg);
       color: var(--text);
       border: 1px solid var(--border2);
     }
-    #btn-update:hover, #btn-fit:hover { background: #ececef; }
+    #btn-fit:hover { background: #ececef; }
     #btn-download {
       background: var(--accent);
       color: #ffffff;
@@ -243,9 +226,6 @@
         min-height: 48px;
       }
 
-      #bbox { font-size: 13px; }
-      #bbox .bbox-val { font-size: 14px; }
-
       #guide { display: none; }  /* スマホでは操作ガイドを省略 */
 
       #axis-label { display: none; }
@@ -268,7 +248,7 @@
 <!-- ========== サイドパネル ========== -->
 <div id="panel">
   <h1>
-    🛁 排水溝蓋 Generator
+    🛁 Drain Cover Generator
     <button class="close-btn" id="panel-close" aria-label="閉じる">✕</button>
   </h1>
 
@@ -336,20 +316,6 @@
     </div>
   </div>
 
-  <div id="bbox">
-    <div class="bbox-title">📦 バウンディングボックス</div>
-    <div class="bbox-row"><span>幅 (X)</span><span class="bbox-val" id="bb-x">100.0 mm</span></div>
-    <div class="bbox-row"><span>奥行 (Y)</span><span class="bbox-val" id="bb-y">100.0 mm</span></div>
-    <div class="bbox-row"><span>高さ (Z)</span><span class="bbox-val" id="bb-z">5.0 mm</span></div>
-    <div class="bbox-row" style="margin-top:8px;">
-      <label style="display:flex; align-items:center; gap:6px; cursor:pointer; font-size:12px;">
-        <input type="checkbox" id="bboxOn" style="accent-color: #0071e3;">
-        ボックス枠を表示
-      </label>
-    </div>
-  </div>
-
-  <button id="btn-update">🔄 形状を更新</button>
   <button id="btn-fit">🎯 全体表示</button>
   <button id="btn-download">⬇ STL ダウンロード</button>
 
@@ -604,7 +570,6 @@ scene.add(new THREE.Line(centerAxisGeo, new THREE.LineBasicMaterial({
 var meshGroup = new THREE.Group();
 scene.add(meshGroup);
 
-var bboxHelper = null;
 
 // Fusion 360 デフォルト風：暖色マットなタウペグレー
 // 完全に non-metal、roughness 高めで「マットなプラ／無塗装金属」感
@@ -929,7 +894,6 @@ function buildSideMesh(holeR, holeDepth, barW, slotSize, topY) {
 function buildMesh() {
   // 古いメッシュを削除
   while (meshGroup.children.length) meshGroup.remove(meshGroup.children[0]);
-  if (bboxHelper) { scene.remove(bboxHelper); bboxHelper = null; }
 
   const segs      = 64;
   const outerR    = parseFloat(document.getElementById('outerD').value)    / 2;
@@ -1126,21 +1090,6 @@ function buildMesh() {
     shadowPlane.scale.set(s, s, 1);
   }
 
-  // -- バウンディングボックス（はっきり見える濃い青）--
-  const bb = new THREE.Box3().setFromObject(meshGroup);
-  bboxHelper = new THREE.Box3Helper(bb, 0x0071e3);
-  bboxHelper.material.transparent = true;
-  bboxHelper.material.opacity = 0.95;
-  bboxHelper.material.depthTest = false;   // 手前に常に表示
-  bboxHelper.renderOrder = 999;
-  bboxHelper.visible = document.getElementById('bboxOn').checked;
-  scene.add(bboxHelper);
-
-  const size = new THREE.Vector3();
-  bb.getSize(size);
-  document.getElementById('bb-x').textContent = size.x.toFixed(1) + ' mm';
-  document.getElementById('bb-y').textContent = size.z.toFixed(1) + ' mm';
-  document.getElementById('bb-z').textContent = size.y.toFixed(1) + ' mm';
 }
 
 // ============================================================
@@ -1155,8 +1104,6 @@ function buildMesh() {
 
 document.getElementById('meshOn').addEventListener('change', buildMesh);
 document.getElementById('bumpOn').addEventListener('change', buildMesh);
-
-document.getElementById('btn-update').addEventListener('click', buildMesh);
 
 // ============================================================
 //  STL エクスポート（バイナリ形式）
@@ -1659,11 +1606,6 @@ function fitToView(margin = 1.25) {
   camera.updateProjectionMatrix();
   camera.lookAt(center);
 }
-
-// ボックス枠の表示 ON/OFF
-document.getElementById('bboxOn').addEventListener('change', (e) => {
-  if (bboxHelper) bboxHelper.visible = e.target.checked;
-});
 
 // 全体表示ボタン
 document.getElementById('btn-fit').addEventListener('click', () => fitToView());

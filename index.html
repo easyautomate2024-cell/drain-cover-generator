@@ -492,7 +492,7 @@ function SimpleOrbitControls(camera, domElement) {
 //  シーンセットアップ
 // ============================================================
 const viewer   = document.getElementById('viewer');
-const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
 renderer.setPixelRatio(window.devicePixelRatio);
 renderer.setClearColor(0x000000, 0);   // 透明クリア → CSS 背景が見える
 renderer.shadowMap.enabled = true;

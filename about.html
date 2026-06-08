@@ -363,20 +363,30 @@
       <line x1="60" y1="300" x2="660" y2="300" stroke="#c8cdd2" stroke-width="1" stroke-dasharray="4,4"/>
       <text x="60" y="316" font-size="11" fill="#888c92" font-family="ui-monospace,monospace">Y = 0 (床面)</text>
 
-      <!-- ===== 蓋本体の断面 ===== -->
-      <!-- 外周リム（左：上の平らな部分） -->
-      <rect x="110" y="100" width="110" height="30" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
-      <!-- 外周リム（右） -->
-      <rect x="500" y="100" width="110" height="30" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
-      <!-- 左ドレンチューブ壁（リム内側からぶら下がる） -->
-      <rect x="210" y="130" width="10" height="140" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
-      <!-- 右ドレンチューブ壁 -->
-      <rect x="500" y="130" width="10" height="140" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
-      <!-- 凹み底（網目穴付きの円盤）-->
-      <rect x="210" y="270" width="300" height="10" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
-      <!-- 中央凸（オプション、凹み底に立つ） -->
-      <rect x="320" y="220" width="80" height="50" fill="#9b938a" stroke="#3a342e" stroke-width="1"/>
-      <text x="360" y="252" text-anchor="middle" font-size="11" fill="#3a342e" font-family="system-ui,sans-serif">中央凸</text>
+      <!-- ===== 蓋本体の断面（一筆書きの単一ポリゴン）===== -->
+      <!-- 外周リム → 凹み内壁 → 凹み底 → 中央凸 → 凹み底 → 凹み内壁 → 外周リム
+           → リム外側 → ドレンチューブ外面 → 底面 → ドレンチューブ外面 → リム外側 を一筆で -->
+      <path d="
+        M 110 100
+        L 220 100
+        L 220 270
+        L 320 270
+        L 320 220
+        L 400 220
+        L 400 270
+        L 500 270
+        L 500 100
+        L 610 100
+        L 610 130
+        L 510 130
+        L 510 280
+        L 210 280
+        L 210 130
+        L 110 130
+        Z" fill="#7a736b" stroke="#3a342e" stroke-width="1.2" stroke-linejoin="miter"/>
+
+      <!-- 中央凸の位置ラベル -->
+      <text x="360" y="248" text-anchor="middle" font-size="11" fill="#ffffff" font-family="system-ui,sans-serif" font-style="italic">中央凸</text>
 
       <!-- ===== 寸法線（基本：青）===== -->
       <!-- 外径 outerD -->

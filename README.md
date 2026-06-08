@@ -30,6 +30,16 @@
 
 凹み深さが蓋の厚みを超える場合、円筒状に下方向へ伸びる「ドレンチューブ」形状になります。
 
+## 詳細ページ
+
+`about.html` に画像入りの詳細説明ページがあります。スクリーンショットを `images/` ディレクトリに追加すると、詳細ページのプレースホルダーが置き換わります：
+
+| ファイル名 | 内容 |
+|---|---|
+| `images/screenshot-main.png` | メイン画面（パネル + 3D ビュー）|
+| `images/screenshot-sliders.png` | スライダー操作中の様子 |
+| `images/photo-printed.jpg` | 3D プリント完成品の写真 |
+
 ## 関連
 
 - [mono labo](https://github.com/easyautomate2024-cell/mono-labo) — ものづくりスモールラボ

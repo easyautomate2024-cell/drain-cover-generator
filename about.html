@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="theme-color" content="#ffffff" />
+  <title>Drain Cover Generator — 詳細</title>
+  <style>
+    :root {
+      --bg:        #f5f5f7;
+      --bg-white:  #ffffff;
+      --text:      #1d1d1f;
+      --muted:     #6e6e73;
+      --accent:    #0071e3;
+      --border:    rgba(0,0,0,0.08);
+      --border2:   rgba(0,0,0,0.14);
+      --card-shadow: 0 1px 3px rgba(0,0,0,0.04), 0 10px 30px rgba(0,0,0,0.04);
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      font-family: system-ui, -apple-system, "Hiragino Sans", "Yu Gothic", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.7;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    /* ===== ナビゲーション ===== */
+    .nav {
+      position: sticky; top: 0;
+      backdrop-filter: saturate(180%) blur(20px);
+      -webkit-backdrop-filter: saturate(180%) blur(20px);
+      background: rgba(255,255,255,0.78);
+      border-bottom: 1px solid var(--border);
+      z-index: 100;
+    }
+    .nav-inner {
+      max-width: 980px; margin: 0 auto;
+      padding: 14px 24px;
+      display: flex; align-items: center; justify-content: space-between;
+      gap: 16px;
+    }
+    .nav .brand { font-size: 15px; font-weight: 600; }
+    .nav .brand a { color: var(--text); text-decoration: none; }
+    .nav .links { display: flex; gap: 18px; font-size: 13px; }
+    .nav .links a { color: var(--muted); text-decoration: none; transition: color 0.15s; }
+    .nav .links a:hover { color: var(--accent); }
+    .nav .cta {
+      background: var(--accent); color: #fff;
+      padding: 7px 16px; border-radius: 980px;
+      font-size: 13px; font-weight: 600;
+      text-decoration: none; transition: filter 0.15s;
+    }
+    .nav .cta:hover { filter: brightness(1.08); }
+
+    /* ===== ヒーロー ===== */
+    .hero {
+      text-align: center;
+      padding: 80px 24px 56px;
+      background: linear-gradient(180deg, #ffffff 0%, #f5f5f7 100%);
+      border-bottom: 1px solid var(--border);
+    }
+    .hero h1 {
+      font-size: 42px; font-weight: 700; letter-spacing: -0.02em;
+      margin-bottom: 14px;
+    }
+    .hero .lead {
+      font-size: 18px; color: var(--muted);
+      max-width: 620px; margin: 0 auto;
+    }
+    .hero .badges {
+      margin-top: 22px; display: flex; gap: 8px; justify-content: center; flex-wrap: wrap;
+    }
+    .hero .badge {
+      font-size: 12px; color: var(--muted);
+      background: var(--bg-white); border: 1px solid var(--border);
+      padding: 5px 12px; border-radius: 980px;
+    }
+
+    /* ===== セクション共通 ===== */
+    section {
+      max-width: 980px;
+      margin: 0 auto;
+      padding: 72px 24px;
+    }
+    section + section { border-top: 1px solid var(--border); }
+    .section-title {
+      font-size: 28px; font-weight: 700; letter-spacing: -0.01em;
+      margin-bottom: 8px;
+    }
+    .section-lead {
+      color: var(--muted); font-size: 16px; margin-bottom: 36px;
+    }
+
+    /* ===== 特徴グリッド ===== */
+    .feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 16px;
+    }
+    .feature {
+      background: var(--bg-white);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px 20px;
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+    .feature:hover { transform: translateY(-2px); box-shadow: var(--card-shadow); }
+    .feature .icon { font-size: 28px; margin-bottom: 10px; display: block; }
+    .feature h3 { font-size: 15px; font-weight: 600; margin-bottom: 6px; }
+    .feature p { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+    /* ===== ステップ ===== */
+    .steps {
+      display: flex; flex-direction: column; gap: 28px;
+    }
+    .step {
+      display: grid;
+      grid-template-columns: 56px 1fr;
+      gap: 22px;
+      align-items: start;
+    }
+    .step .num {
+      width: 44px; height: 44px;
+      border-radius: 50%;
+      background: var(--accent); color: #fff;
+      display: flex; align-items: center; justify-content: center;
+      font-weight: 700; font-size: 18px;
+    }
+    .step h3 { font-size: 18px; font-weight: 600; margin-bottom: 6px; }
+    .step p { color: var(--muted); font-size: 14px; }
+
+    /* ===== 画像 ===== */
+    figure {
+      margin: 24px 0;
+      background: var(--bg-white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+    }
+    figure img {
+      width: 100%; height: auto; display: block;
+      background: #fafafa;
+    }
+    figure .placeholder {
+      aspect-ratio: 16 / 9;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      background: linear-gradient(180deg, #fafbfc 0%, #f0f2f5 100%);
+      color: var(--muted); font-size: 13px;
+      gap: 6px;
+    }
+    figure .placeholder .ph-icon { font-size: 36px; opacity: 0.4; }
+    figure .placeholder code {
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+      font-size: 11px; background: rgba(0,0,0,0.04); padding: 2px 6px; border-radius: 4px;
+    }
+    figcaption {
+      padding: 12px 18px; font-size: 12px; color: var(--muted);
+      border-top: 1px solid var(--border); background: var(--bg);
+    }
+
+    /* ===== 断面図（SVG）===== */
+    .diagram-wrap {
+      background: var(--bg-white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 28px;
+      box-shadow: var(--card-shadow);
+      overflow-x: auto;
+    }
+    .diagram-wrap svg { display: block; margin: 0 auto; max-width: 100%; height: auto; }
+
+    /* ===== パラメータ表 ===== */
+    .param-table {
+      width: 100%; border-collapse: collapse;
+      background: var(--bg-white);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      overflow: hidden;
+      box-shadow: var(--card-shadow);
+      margin-top: 20px;
+    }
+    .param-table th, .param-table td {
+      padding: 12px 16px; text-align: left;
+      border-bottom: 1px solid var(--border);
+      font-size: 13px;
+    }
+    .param-table th {
+      background: var(--bg);
+      font-weight: 600; color: var(--muted);
+      font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em;
+    }
+    .param-table tbody tr:last-child td { border-bottom: none; }
+    .param-table tbody tr:hover { background: rgba(0,113,227,0.03); }
+    .param-table .name {
+      font-weight: 600; color: var(--text);
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+      font-size: 12px;
+    }
+    .param-table .range {
+      color: var(--accent); font-weight: 500;
+      font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+      font-size: 12px;
+    }
+
+    /* ===== 注意ボックス ===== */
+    .note {
+      background: #f0f7ff;
+      border: 1px solid #cfe3fb;
+      border-radius: 12px;
+      padding: 14px 18px;
+      font-size: 13px; color: #1d4f8c;
+      margin-top: 20px;
+    }
+    .note b { color: #0071e3; }
+
+    /* ===== フッター ===== */
+    footer {
+      max-width: 980px; margin: 0 auto;
+      padding: 36px 24px 60px;
+      border-top: 1px solid var(--border);
+      color: var(--muted); font-size: 12px;
+      text-align: center;
+    }
+    footer a { color: var(--accent); text-decoration: none; }
+
+    /* ===== レスポンシブ ===== */
+    @media (max-width: 640px) {
+      .hero h1 { font-size: 32px; }
+      .hero .lead { font-size: 16px; }
+      section { padding: 56px 20px; }
+      .section-title { font-size: 24px; }
+      .step { grid-template-columns: 44px 1fr; gap: 16px; }
+      .step .num { width: 36px; height: 36px; font-size: 15px; }
+      .nav-inner { padding: 12px 16px; }
+      .nav .links { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<!-- ===== ナビ ===== -->
+<nav class="nav">
+  <div class="nav-inner">
+    <div class="brand"><a href="./about.html">🛁 Drain Cover Generator</a></div>
+    <div class="links">
+      <a href="#features">特徴</a>
+      <a href="#usage">使い方</a>
+      <a href="#parameters">パラメータ</a>
+      <a href="#print">3D プリント</a>
+    </div>
+    <a class="cta" href="./index.html">ツールを開く →</a>
+  </div>
+</nav>
+
+<!-- ===== ヒーロー ===== -->
+<header class="hero">
+  <h1>Drain Cover Generator</h1>
+  <p class="lead">
+    お風呂の排水溝の蓋（ドレンカバー）を、ブラウザだけでパラメトリックに設計して STL ダウンロードできるツールです。
+  </p>
+  <div class="badges">
+    <span class="badge">ブラウザ完結</span>
+    <span class="badge">3D ビュー</span>
+    <span class="badge">STL 出力</span>
+    <span class="badge">無料 / ノーインストール</span>
+  </div>
+</header>
+
+<!-- ===== 概要 ===== -->
+<section id="overview">
+  <h2 class="section-title">概要</h2>
+  <p class="section-lead">
+    既製品のドレンカバーが合わない、サイズ感を変えたい、髪の毛・ゴミの捕集効率を上げたい——そんなときに、自分の浴室の寸法に合わせて 1 枚だけ 3D プリントできるよう設計しました。
+  </p>
+  <figure>
+    <div class="placeholder">
+      <span class="ph-icon">🖼</span>
+      <span>メイン画面のスクリーンショット</span>
+      <code>images/screenshot-main.png</code>
+    </div>
+    <figcaption>左サイドパネルでスライダー調整、右側で 3D ビュー回転・ズーム。</figcaption>
+  </figure>
+</section>
+
+<!-- ===== 特徴 ===== -->
+<section id="features">
+  <h2 class="section-title">特徴</h2>
+  <p class="section-lead">スライダー 1 本ずつで形状が即時反映されます。難しい CAD の知識は不要です。</p>
+  <div class="feature-grid">
+    <div class="feature">
+      <span class="icon">🎛</span>
+      <h3>パラメトリック</h3>
+      <p>外径・厚み・凹みサイズ・メッシュ寸法を全てスライダーで調整。リアルタイムに 3D 形状へ反映。</p>
+    </div>
+    <div class="feature">
+      <span class="icon">👁</span>
+      <h3>ブラウザ 3D ビュー</h3>
+      <p>Three.js による回転・ズーム・パン。スマホでも 1 本指回転 / 2 本指でズーム & パン対応。</p>
+    </div>
+    <div class="feature">
+      <span class="icon">🕳</span>
+      <h3>同心円リング状メッシュ</h3>
+      <p>底面と側壁にケージ状の排水穴を生成。穴サイズと桟幅を独立に制御。</p>
+    </div>
+    <div class="feature">
+      <span class="icon">⛰</span>
+      <h3>中央凸（オプション）</h3>
+      <p>凹みの中央に網目付きのキャップ状凸部を追加。ヘアキャッチャー機能を高めます。</p>
+    </div>
+    <div class="feature">
+      <span class="icon">🧱</span>
+      <h3>多様体 STL</h3>
+      <p>Manifold-3D による CSG 統合で、スライサー（Bambu Studio など）で警告の出ない閉曲面メッシュを出力。</p>
+    </div>
+    <div class="feature">
+      <span class="icon">📐</span>
+      <h3>自動配置</h3>
+      <p>凹みが深くても最深部が常に Y=0 に乗るよう自動リフト。スライサーで床面に置きやすい座標で出力。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 使い方 ===== -->
+<section id="usage">
+  <h2 class="section-title">使い方</h2>
+  <p class="section-lead">浴室の既存ドレンを採寸して、3 ステップで STL ができます。</p>
+
+  <div class="steps">
+    <div class="step">
+      <div class="num">1</div>
+      <div>
+        <h3>採寸</h3>
+        <p>既存の排水口蓋の <b>外径</b>と<b>凹み直径</b>を測ります。深さは「水がどれだけ溜まる空間が欲しいか」で決めます（通常 30–60 mm 程度）。</p>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">2</div>
+      <div>
+        <h3>パラメータ調整</h3>
+        <p>サイドパネルのスライダーを動かすと、3D ビューが即時更新されます。下記の<a href="#parameters">パラメータ一覧</a>を参考にしてください。</p>
+        <figure>
+          <div class="placeholder">
+            <span class="ph-icon">🖼</span>
+            <span>パラメータ調整中のスクリーンショット</span>
+            <code>images/screenshot-sliders.png</code>
+          </div>
+          <figcaption>スライダー操作で形状がリアルタイムに変化。</figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div class="step">
+      <div class="num">3</div>
+      <div>
+        <h3>STL ダウンロード &amp; 3D プリント</h3>
+        <p>「⬇ STL ダウンロード」を押すと、現在の形状の STL ファイルが生成されます。スライサー（Bambu Studio / PrusaSlicer / Cura など）にドラッグして印刷してください。</p>
+        <figure>
+          <div class="placeholder">
+            <span class="ph-icon">🖼</span>
+            <span>3D プリント完成品の写真</span>
+            <code>images/photo-printed.jpg</code>
+          </div>
+          <figcaption>実際にプリントしたサンプル。</figcaption>
+        </figure>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ===== パラメータ ===== -->
+<section id="parameters">
+  <h2 class="section-title">パラメータ説明</h2>
+  <p class="section-lead">各スライダーが形状のどの部分に対応するかを断面図で示します。</p>
+
+  <div class="diagram-wrap">
+    <svg viewBox="0 0 720 360" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="diagram-title">
+      <title id="diagram-title">Drain Cover 断面図</title>
+
+      <!-- 床面（影） -->
+      <line x1="60" y1="290" x2="660" y2="290" stroke="#c8cdd2" stroke-width="1" stroke-dasharray="4,4"/>
+      <text x="60" y="306" font-size="11" fill="#888c92" font-family="ui-monospace,monospace">Y = 0 (床面)</text>
+
+      <!-- 蓋本体（断面：左半分 + 右半分） -->
+      <!-- 外周リム（左側） -->
+      <path d="M 110 200 L 110 230 L 240 230 L 240 200 Z" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
+      <!-- 凹み底（左下に伸びる） -->
+      <path d="M 240 230 L 240 270 L 280 270 L 280 230 Z" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
+      <!-- 中央凸 -->
+      <path d="M 340 230 L 340 190 L 380 190 L 380 230 Z" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
+      <!-- 凹み底（右側に伸びる） -->
+      <path d="M 440 230 L 440 270 L 480 270 L 480 230 Z" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
+      <!-- 外周リム（右側） -->
+      <path d="M 480 200 L 480 230 L 610 230 L 610 200 Z" fill="#7a736b" stroke="#3a342e" stroke-width="1"/>
+      <!-- 底面結合（薄く） -->
+      <path d="M 280 270 L 440 270 L 440 250 L 280 250 Z" fill="#9b938a" stroke="#3a342e" stroke-width="0.5"/>
+
+      <!-- 寸法線：外径 -->
+      <g stroke="#0071e3" stroke-width="1" fill="none">
+        <line x1="110" y1="170" x2="610" y2="170"/>
+        <line x1="110" y1="165" x2="110" y2="175"/>
+        <line x1="610" y1="165" x2="610" y2="175"/>
+      </g>
+      <text x="360" y="160" text-anchor="middle" font-size="13" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">外径 outerD</text>
+
+      <!-- 寸法線：凹み直径 -->
+      <g stroke="#0071e3" stroke-width="1" fill="none">
+        <line x1="240" y1="142" x2="480" y2="142"/>
+        <line x1="240" y1="137" x2="240" y2="147"/>
+        <line x1="480" y1="137" x2="480" y2="147"/>
+      </g>
+      <text x="360" y="132" text-anchor="middle" font-size="13" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">凹み直径 holeD</text>
+
+      <!-- 寸法線：厚み（左外側）-->
+      <g stroke="#0071e3" stroke-width="1" fill="none">
+        <line x1="85" y1="200" x2="85" y2="230"/>
+        <line x1="80" y1="200" x2="90" y2="200"/>
+        <line x1="80" y1="230" x2="90" y2="230"/>
+      </g>
+      <text x="40" y="219" font-size="12" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">厚み</text>
+
+      <!-- 寸法線：凹み深さ（左内側）-->
+      <g stroke="#0071e3" stroke-width="1" fill="none">
+        <line x1="260" y1="200" x2="260" y2="270"/>
+        <line x1="255" y1="200" x2="265" y2="200"/>
+        <line x1="255" y1="270" x2="265" y2="270"/>
+      </g>
+      <text x="265" y="245" font-size="12" fill="#0071e3" font-weight="600" font-family="ui-monospace,monospace">凹み深さ</text>
+
+      <!-- 寸法線：中央凸 直径 -->
+      <g stroke="#27ae60" stroke-width="1" fill="none">
+        <line x1="340" y1="180" x2="380" y2="180"/>
+        <line x1="340" y1="175" x2="340" y2="185"/>
+        <line x1="380" y1="175" x2="380" y2="185"/>
+      </g>
+      <text x="360" y="172" text-anchor="middle" font-size="11" fill="#27ae60" font-weight="600" font-family="ui-monospace,monospace">bumpD</text>
+
+      <!-- 寸法線：中央凸 高さ -->
+      <g stroke="#27ae60" stroke-width="1" fill="none">
+        <line x1="395" y1="190" x2="395" y2="230"/>
+        <line x1="390" y1="190" x2="400" y2="190"/>
+        <line x1="390" y1="230" x2="400" y2="230"/>
+      </g>
+      <text x="403" y="214" font-size="11" fill="#27ae60" font-weight="600" font-family="ui-monospace,monospace">bumpH</text>
+
+      <!-- 凡例 -->
+      <g font-family="system-ui, sans-serif" font-size="11">
+        <rect x="60" y="325" width="14" height="10" fill="#7a736b" stroke="#3a342e"/>
+        <text x="80" y="334" fill="#1d1d1f">蓋本体</text>
+        <line x1="160" y1="330" x2="180" y2="330" stroke="#0071e3" stroke-width="2"/>
+        <text x="188" y="334" fill="#1d1d1f">基本寸法</text>
+        <line x1="260" y1="330" x2="280" y2="330" stroke="#27ae60" stroke-width="2"/>
+        <text x="288" y="334" fill="#1d1d1f">中央凸（オプション）</text>
+      </g>
+    </svg>
+  </div>
+
+  <table class="param-table">
+    <thead>
+      <tr>
+        <th>カテゴリ</th>
+        <th>パラメータ</th>
+        <th>範囲</th>
+        <th>初期値</th>
+        <th>説明</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td rowspan="2">基本寸法</td>
+        <td class="name">outerD</td>
+        <td class="range">50 – 250 mm</td>
+        <td>150 mm</td>
+        <td>蓋の外径。実際の排水口の縁に乗る大きさ。</td>
+      </tr>
+      <tr>
+        <td class="name">thickness</td>
+        <td class="range">2 – 20 mm</td>
+        <td>5 mm</td>
+        <td>外周リムの厚み。剛性を確保したい場合は 4 mm 以上推奨。</td>
+      </tr>
+      <tr>
+        <td rowspan="2">凹み</td>
+        <td class="name">holeD</td>
+        <td class="range">10 – 230 mm</td>
+        <td>125 mm</td>
+        <td>凹みの内径。外径と差をとった分が外周リムの幅になります。</td>
+      </tr>
+      <tr>
+        <td class="name">holeDepth</td>
+        <td class="range">0.5 – 100 mm</td>
+        <td>40 mm</td>
+        <td>凹みの深さ。厚みを超えると下方にドレンチューブとして突き出ます。</td>
+      </tr>
+      <tr>
+        <td rowspan="3">排水メッシュ</td>
+        <td class="name">barW</td>
+        <td class="range">0.5 – 10 mm</td>
+        <td>1.5 mm</td>
+        <td>桟（リブ）の幅。狭いほど開口率が上がり水通りが良くなります。</td>
+      </tr>
+      <tr>
+        <td class="name">slotSize</td>
+        <td class="range">1 – 40 mm</td>
+        <td>8 mm</td>
+        <td>メッシュ穴の代表サイズ。髪の毛キャッチ用途なら 3–6 mm 推奨。</td>
+      </tr>
+      <tr>
+        <td class="name">meshOn</td>
+        <td class="range">ON / OFF</td>
+        <td>ON</td>
+        <td>OFF にするとソリッドな円盤になります（排水機能なし）。</td>
+      </tr>
+      <tr>
+        <td rowspan="3">中央凸（オプション）</td>
+        <td class="name">bumpOn</td>
+        <td class="range">ON / OFF</td>
+        <td>OFF</td>
+        <td>凹み中央に網目付きの凸キャップを追加。ヘアキャッチャー強化用。</td>
+      </tr>
+      <tr>
+        <td class="name">bumpD</td>
+        <td class="range">5 – 100 mm</td>
+        <td>25 mm</td>
+        <td>中央凸の直径。底面はこの直径でくり抜かれます。</td>
+      </tr>
+      <tr>
+        <td class="name">bumpH</td>
+        <td class="range">1 – 50 mm</td>
+        <td>8 mm</td>
+        <td>中央凸の高さ。凹み深さよりも低めに設定すると清掃しやすい。</td>
+      </tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>Tip：</b> パラメータの組み合わせによっては「凹み深さが厚みより深い」ケースになります。この場合は外周リムの下に円筒状の<b>ドレンチューブ</b>が自動で生成され、既存の排水口にすっぽり入る形になります。
+  </div>
+</section>
+
+<!-- ===== 3D プリント ===== -->
+<section id="print">
+  <h2 class="section-title">3D プリント推奨設定</h2>
+  <p class="section-lead">PLA / PETG / ABS など一般的なフィラメントで印刷可能です。浴室で使うなら耐熱・耐湿性のある <b>PETG</b> または <b>ASA</b> を推奨します。</p>
+
+  <table class="param-table">
+    <thead>
+      <tr><th>項目</th><th>推奨値</th><th>備考</th></tr>
+    </thead>
+    <tbody>
+      <tr><td class="name">フィラメント</td><td>PETG / ASA</td><td>浴室の湿度・温度を考慮。PLA は変形リスクあり</td></tr>
+      <tr><td class="name">レイヤー厚</td><td>0.2 mm</td><td>メッシュ細部を出すなら 0.16 mm でも可</td></tr>
+      <tr><td class="name">ノズル径</td><td>0.4 mm</td><td>標準。0.2 mm は桟幅 1.0 mm 以上で安定</td></tr>
+      <tr><td class="name">インフィル</td><td>20% – 40%</td><td>桟がメインなのでインフィルは控えめで OK</td></tr>
+      <tr><td class="name">プリント向き</td><td>凹みを上に</td><td>底面が大きく安定。サポート最小限</td></tr>
+      <tr><td class="name">サポート</td><td>必要に応じて</td><td>凹み深さが深い場合のみ。通常は不要</td></tr>
+    </tbody>
+  </table>
+
+  <div class="note">
+    <b>非多様体（non-manifold）警告について：</b> Manifold-3D ライブラリで CSG 統合してから出力するので、Bambu Studio などの厳格なスライサーでも警告は出ないはずです。万一警告が出る場合は、桟幅 (<code>barW</code>) を少し広げるか穴サイズ (<code>slotSize</code>) を少し変えて再出力してみてください。
+  </div>
+</section>
+
+<!-- ===== 技術 ===== -->
+<section id="tech">
+  <h2 class="section-title">技術スタック</h2>
+  <p class="section-lead">ビルド不要・依存関係なしの Pure HTML 構成です。</p>
+  <div class="feature-grid">
+    <div class="feature">
+      <span class="icon">🌐</span>
+      <h3>Three.js r128</h3>
+      <p>ブラウザ 3D 描画。CDN から直接ロード。</p>
+    </div>
+    <div class="feature">
+      <span class="icon">🔧</span>
+      <h3>Manifold-3D 3.0</h3>
+      <p>WASM ベースの CSG エンジン。多様体な STL を出力。</p>
+    </div>
+    <div class="feature">
+      <span class="icon">📦</span>
+      <h3>Pure HTML / JS</h3>
+      <p>1 ファイル完結。GitHub Pages でそのまま配信。</p>
+    </div>
+  </div>
+</section>
+
+<!-- ===== 関連 ===== -->
+<section id="related">
+  <h2 class="section-title">関連プロジェクト</h2>
+  <div class="feature-grid">
+    <div class="feature">
+      <span class="icon">🧪</span>
+      <h3><a href="https://easyautomate2024-cell.github.io/mono-labo/" style="color:var(--text); text-decoration:none;">mono labo</a></h3>
+      <p>ものづくりスモールラボ。本ツールも mono labo のラインナップの 1 つです。</p>
+    </div>
+    <div class="feature">
+      <span class="icon">⚡</span>
+      <h3><a href="https://github.com/easyautomate2024-cell/offgrid-designer" style="color:var(--text); text-decoration:none;">Offgrid Designer</a></h3>
+      <p>ソーラー / バッテリーオフグリッド配線設計ツール。</p>
+    </div>
+    <div class="feature">
+      <span class="icon">💻</span>
+      <h3><a href="https://github.com/easyautomate2024-cell/drain-cover-generator" style="color:var(--text); text-decoration:none;">GitHub リポジトリ</a></h3>
+      <p>本ツールのソースコード。MIT で公開。</p>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <p>© mono labo — Drain Cover Generator</p>
+  <p style="margin-top:6px;"><a href="./index.html">ツールを開く</a> · <a href="https://github.com/easyautomate2024-cell/drain-cover-generator">GitHub</a></p>
+</footer>
+
+</body>
+</html>

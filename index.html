@@ -300,8 +300,8 @@
     <div class="section-title">排水メッシュ</div>
     <div class="param-group">
       <div class="param-row">
-        <label>桟の幅 (mm) <span id="val-barW">1.5</span></label>
-        <input type="range" id="barW" min="0.5" max="10" value="1.5" step="0.1">
+        <label>桟の幅 (mm) <span id="val-barW">2</span></label>
+        <input type="range" id="barW" min="0.5" max="10" value="2" step="0.1">
       </div>
       <div class="param-row">
         <label>穴のサイズ (mm) <span id="val-slotSize">8</span></label>
@@ -717,7 +717,7 @@ function buildCenterBump(bumpR, bumpH, baseY, barW, slotSize, meshOn) {
 
   if (meshOn && innerR > 0.5 && (barW + slotSize) > 0.1) {
     // メッシュ天面（薄い円盤）
-    const topCapThick = Math.max(0.8, barW * 0.6);
+    const topCapThick = Math.max(1.5, barW);
     const wallH = Math.max(0, bumpH - topCapThick);
 
     // 側壁ケージ
@@ -726,7 +726,8 @@ function buildCenterBump(bumpR, bumpH, baseY, barW, slotSize, meshOn) {
     }
 
     // 天面メッシュ
-    buildMeshDisk(bumpR, topCapThick, baseY + bumpH, barW, slotSize, matInner);
+    const capBarW = Math.max(2.0, barW * 1.5);
+    buildMeshDisk(bumpR, topCapThick, baseY + bumpH, capBarW, slotSize, matInner);
   } else {
     // ソリッド円柱（メッシュOFF or 内径が確保できない場合）
     const geo = new THREE.CylinderGeometry(bumpR, bumpR, bumpH, 64);
@@ -924,7 +925,7 @@ function buildMesh() {
   // 深い場合：固定 1mm（蓋の下にチューブ状に突き出る）
   const naturalBottom = thickness - holeDepth;
   const bottomThick   = Math.max(1, naturalBottom);
-
+  const bottomThick   = Math.max(2, naturalBottom);
   // -- 外周リング（ExtrudeGeometry で穴あきディスク）--
   const ringShape = new THREE.Shape();
   ringShape.absarc(0, 0, outerR, 0, Math.PI * 2, false);
@@ -1088,7 +1089,7 @@ function buildMesh() {
     const bumpH = parseFloat(document.getElementById('bumpH').value);
     // 凸の底＝凹みの内側底（水が溜まる面）と一致（welding で結合）
     buildCenterBump(bumpR, bumpH, bottomTopY, barW, slotSize, meshOn);
-  }
+    buildCenterBump(bumpR, bumpH + bottomThick, bottomTopY - bottomThick, barW, slotSize, meshOn);
 
   // Fusion 360 はエッジ線なしのスムーズシェーディングなのでスキップ
   // addEdgeLines(meshGroup, 25);

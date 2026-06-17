@@ -689,7 +689,8 @@ function buildMeshDisk(radius, thick, topY, barW, slotSize, material, centerHole
       }
     }
   }
-天面：シンプルなリング  const geo = new THREE.ExtrudeGeometry(shape, {
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
     depth: thick, bevelEnabled: false, curveSegments: 64,
   });
   geo.rotateX(-Math.PI / 2);

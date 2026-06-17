@@ -729,10 +729,11 @@ function buildCenterBump(bumpR, bumpH, baseY, barW, slotSize, meshOn) {
     // 天面：メッシュ付きドーナツリング（放射状スロット、バー幅=barW で本体と統一）
     const capShape = new THREE.Shape();
     capShape.absarc(0, 0, bumpR, 0, Math.PI * 2, false);
+    const capHoleR = Math.min(slotSize / 2, bumpR - 2 * barW);
     const capCenter = new THREE.Path();
-    capCenter.absarc(0, 0, bumpR * 0.5, 0, Math.PI * 2, true);
+    capCenter.absarc(0, 0, capHoleR, 0, Math.PI * 2, true);
     capShape.holes.push(capCenter);
-    const capInner = bumpR * 0.5 + barW * 0.5;
+    const capInner = capHoleR + barW * 0.5;
     const capOuter = bumpR - barW * 0.5;
     const capMeanR = (capInner + capOuter) * 0.5;
     const capNumSlots = Math.max(3, Math.floor(2 * Math.PI * capMeanR / (barW + slotSize)));

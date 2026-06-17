@@ -635,9 +635,10 @@ function addEdgeLines(group, thresholdDeg = 25) {
 // ============================================================
 //  メッシュ穴あき円盤の構築（凹底面・凸天面 共通）
 // ============================================================
-function buildMeshDisk(radius, thick, topY, barW, slotSize, material) {
+function buildMeshDisk(radius, thick, topY, barW, slotSize, material, centerHole = false) {
   const shape = new THREE.Shape();
   shape.absarc(0, 0, radius, 0, Math.PI * 2, false);
+  if (centerHole) shape.absarc(0, 0, barW, 0, Math.PI * 2, true);
 
   // 同心円リング配置
   const slotInfo     = [];
@@ -726,8 +727,7 @@ function buildCenterBump(bumpR, bumpH, baseY, barW, slotSize, meshOn) {
     }
 
     // 天面メッシュ（太い桓で印刷強度を確保）
-    const capBarW = Math.max(3.0, barW * 2.0);
-    buildMeshDisk(bumpR, topCapThick, baseY + bumpH, capBarW, slotSize, matInner);
+    buildMeshDisk(bumpR, topCapThick, baseY + bumpH, barW, slotSize, matInner, true);
   } else {
     // ソリッド円柱（メッシュOFF or 内径が確保できない場合）
     const geo = new THREE.CylinderGeometry(bumpR, bumpR, bumpH, 64);

@@ -924,7 +924,6 @@ function buildMesh() {
   // 浅い場合：厚み - 深さ（残った材料）
   // 深い場合：固定 1mm（蓋の下にチューブ状に突き出る）
   const naturalBottom = thickness - holeDepth;
-  const bottomThick   = Math.max(1, naturalBottom);
   const bottomThick   = Math.max(2, naturalBottom);
   // -- 外周リング（ExtrudeGeometry で穴あきディスク）--
   const ringShape = new THREE.Shape();

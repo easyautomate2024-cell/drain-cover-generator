@@ -1303,7 +1303,8 @@ async function loadManifold() {
     const wasm    = await Module({
       locateFile: (path) => baseUrl + path
     });
-function buildMeshDisk(    return wasm;
+    wasm.setup();
+    return wasm;
   })().catch((err) => {
     manifoldPromise = null;
     throw err;

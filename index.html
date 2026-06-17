@@ -728,9 +728,15 @@ function buildCenterBump(bumpR, bumpH, baseY, barW, slotSize, meshOn) {
 
     // 天面メッシュ（太い桓で印刷強度を確保）
     // 天面メッシュ（bumpR比でスケール）
-    const capBarW   = Math.max(0.8, bumpR * 0.12);
-    const capSlot   = Math.max(1.0, bumpR * 0.18);
-    buildMeshDisk(bumpR, topCapThick, baseY + bumpH, capBarW, capSlot, matInner, true);
+    // 天面：シンプルなリング（ドーナツ形状）
+    const ringShape = new THREE.Shape();
+    ringShape.absarc(0, 0, bumpR, 0, Math.PI * 2, false);
+    const ringHole = new THREE.Path();
+    ringHole.absarc(0, 0, bumpR * 0.5, 0, Math.PI * 2, true);
+    ringShape.holes.push(ringHole);
+    const ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: topCapThick, bevelEnabled: false });
+    ringGeo.translate(0, baseY + bumpH - topCapThick, 0);
+    meshGroup.add(new THREE.Mesh(ringGeo, matInner));
   } else {
     // ソリッド円柱（メッシュOFF or 内径が確保できない場合）
     const geo = new THREE.CylinderGeometry(bumpR, bumpR, bumpH, 64);

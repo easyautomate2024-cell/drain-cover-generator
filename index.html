@@ -735,6 +735,7 @@ function buildCenterBump(bumpR, bumpH, baseY, barW, slotSize, meshOn) {
     ringHole.absarc(0, 0, bumpR * 0.5, 0, Math.PI * 2, true);
     ringShape.holes.push(ringHole);
     const ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: topCapThick, bevelEnabled: false });
+    ringGeo.rotateX(-Math.PI / 2);
     ringGeo.translate(0, baseY + bumpH - topCapThick, 0);
     meshGroup.add(new THREE.Mesh(ringGeo, matInner));
   } else {

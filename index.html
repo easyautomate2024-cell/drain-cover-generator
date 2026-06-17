@@ -8,7 +8,7 @@
   <meta name="theme-color" content="#ffffff" />
   <title>排水溝蓋 STL ジェネレーター</title>
 <!-- Google tag (gtag.js) -->
-<script async src="https://www.googletagmanager.com/gtag/js?id=G-CT3HK859TJ"></script>
+<script async src="https://www.googletagmanager.com/gtagh/js?id=G-CT3HK859TJ"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
   function gtag(){dataLayer.push(arguments);}
@@ -689,8 +689,7 @@ function buildMeshDisk(radius, thick, topY, barW, slotSize, material, centerHole
       }
     }
   }
-
-  const geo = new THREE.ExtrudeGeometry(shape, {
+天面：シンプルなリング  const geo = new THREE.ExtrudeGeometry(shape, {
     depth: thick, bevelEnabled: false, curveSegments: 64,
   });
   geo.rotateX(-Math.PI / 2);
@@ -726,18 +725,35 @@ function buildCenterBump(bumpR, bumpH, baseY, barW, slotSize, meshOn) {
       buildCageWall(bumpR, innerR, baseY, baseY + wallH, barW, slotSize);
     }
 
-    // 天面メッシュ（太い桓で印刷強度を確保）
-    // 天面メッシュ（bumpR比でスケール）
-    // 天面：シンプルなリング（ドーナツ形状）
-    const ringShape = new THREE.Shape();
-    ringShape.absarc(0, 0, bumpR, 0, Math.PI * 2, false);
-    const ringHole = new THREE.Path();
-    ringHole.absarc(0, 0, bumpR * 0.5, 0, Math.PI * 2, true);
-    ringShape.holes.push(ringHole);
-    const ringGeo = new THREE.ExtrudeGeometry(ringShape, { depth: topCapThick, bevelEnabled: false });
-    ringGeo.rotateX(-Math.PI / 2);
-    ringGeo.translate(0, baseY + bumpH - topCapThick, 0);
-    meshGroup.add(new THREE.Mesh(ringGeo, matInner));
+    // 天面：メッシュ付きドーナツリング（放射状スロット、バー幅=barW で本体と統一）
+    const capShape = new THREE.Shape();
+    capShape.absarc(0, 0, bumpR, 0, Math.PI * 2, false);
+    const capCenter = new THREE.Path();
+    capCenter.absarc(0, 0, bumpR * 0.5, 0, Math.PI * 2, true);
+    capShape.holes.push(capCenter);
+    const capInner = bumpR * 0.5 + barW * 0.5;
+    const capOuter = bumpR - barW * 0.5;
+    const capMeanR = (capInner + capOuter) * 0.5;
+    const capNumSlots = Math.max(3, Math.floor(2 * Math.PI * capMeanR / (barW + slotSize)));
+    const capAngStep = (2 * Math.PI) / capNumSlots;
+    const capHalfBar = barW / (2 * capMeanR);
+    for (let i = 0; i < capNumSlots; i++) {
+      const a0 = i * capAngStep + capHalfBar;
+      const a1 = (i + 1) * capAngStep - capHalfBar;
+      if (a1 <= a0) continue;
+      const arcSeg = 6;
+      const capSlot = new THREE.Path();
+      capSlot.moveTo(capOuter * Math.cos(a0), capOuter * Math.sin(a0));
+      for (let k = 1; k <= arcSeg; k++) { const a = a0 + (a1 - a0) * k / arcSeg; capSlot.lineTo(capOuter * Math.cos(a), capOuter * Math.sin(a)); }
+      capSlot.lineTo(capInner * Math.cos(a1), capInner * Math.sin(a1));
+      for (let k = 1; k <= arcSeg; k++) { const a = a1 - (a1 - a0) * k / arcSeg; capSlot.lineTo(capInner * Math.cos(a), capInner * Math.sin(a)); }
+      capSlot.closePath();
+      capShape.holes.push(capSlot);
+    }
+    const capGeo = new THREE.ExtrudeGeometry(capShape, { depth: topCapThick, bevelEnabled: false, curveSegments: 64 });
+    capGeo.rotateX(-Math.PI / 2);
+    capGeo.translate(0, baseY + bumpH - topCapThick, 0);
+    meshGroup.add(new THREE.Mesh(capGeo, matInner));
   } else {
     // ソリッド円柱（メッシュOFF or 内径が確保できない場合）
     const geo = new THREE.CylinderGeometry(bumpR, bumpR, bumpH, 64);
@@ -1286,8 +1302,7 @@ async function loadManifold() {
     const wasm    = await Module({
       locateFile: (path) => baseUrl + path
     });
-    wasm.setup();
-    return wasm;
+function buildMeshDisk(    return wasm;
   })().catch((err) => {
     manifoldPromise = null;
     throw err;

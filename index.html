@@ -725,10 +725,9 @@ function buildCenterBump(bumpR, bumpH, baseY, barW, slotSize, meshOn) {
       buildCageWall(bumpR, innerR, baseY, baseY + wallH, barW, slotSize);
     }
 
-    // 天面はソリッド円盤（細い桓がなく引っかかり・折れを防止）
-    const capGeo = new THREE.CylinderGeometry(bumpR, bumpR, topCapThick, 64);
-    capGeo.translate(0, baseY + bumpH - topCapThick / 2, 0);
-    meshGroup.add(new THREE.Mesh(capGeo, matInner));
+    // 天面メッシュ（太い桓で印刷強度を確保）
+    const capBarW = Math.max(3.0, barW * 2.0);
+    buildMeshDisk(bumpR, topCapThick, baseY + bumpH, capBarW, slotSize, matInner);
   } else {
     // ソリッド円柱（メッシュOFF or 内径が確保できない場合）
     const geo = new THREE.CylinderGeometry(bumpR, bumpR, bumpH, 64);

@@ -638,11 +638,11 @@ function addEdgeLines(group, thresholdDeg = 25) {
 function buildMeshDisk(radius, thick, topY, barW, slotSize, material, centerHole = false) {
   const shape = new THREE.Shape();
   shape.absarc(0, 0, radius, 0, Math.PI * 2, false);
-  if (centerHole) shape.absarc(0, 0, barW, 0, Math.PI * 2, true);
+  shape.absarc(0, 0, innerR_limit, 0, Math.PI * 2, true);
 
   // 同心円リング配置
   const slotInfo     = [];
-  const innerR_limit = barW;
+  const innerR_limit = barW * 2;
   const outerR_limit = radius - barW;
   const ringPitch    = barW + slotSize;
   const available    = outerR_limit - innerR_limit;

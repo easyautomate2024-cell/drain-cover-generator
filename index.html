@@ -7,7 +7,7 @@
   <meta name="apple-mobile-web-app-capable" content="yes" />
   <meta name="theme-color" content="#ffffff" />
   <title>排水溝蓋 STL ジェネレーター</title>
-<!-- Google tag (gtag.js) -->h
+<!-- Google tag (gtag.js) -->
 <script async src="https://www.googletagmanager.com/gtagh/js?id=G-CT3HK859TJ"></script>
 <script>
   window.dataLayer = window.dataLayer || [];
@@ -642,7 +642,9 @@ function buildMeshDisk(radius, thick, topY, barW, slotSize, material, centerHole
   // 同心円リング配置
   const slotInfo     = [];
   const innerR_limit = barW * 2;
-  shape.absarc(0, 0, innerR_limit, 0, Math.PI * 2, true);
+  const centerHolePath = new THREE.Path();
+  centerHolePath.absarc(0, 0, innerR_limit, 0, Math.PI * 2, true);
+  shape.holes.push(centerHolePath);
   const outerR_limit = radius - barW;
   const ringPitch    = barW + slotSize;
   const available    = outerR_limit - innerR_limit;

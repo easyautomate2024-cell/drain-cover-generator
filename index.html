@@ -970,13 +970,17 @@ function buildMesh() {
     const bumpHole = new THREE.Path();
     bumpHole.absarc(0, 0, bumpR_clip, 0, Math.PI * 2, true);
     bottomShape.holes.push(bumpHole);
+  } else {
+    const centerHole = new THREE.Path();
+    centerHole.absarc(0, 0, barW * 2, 0, Math.PI * 2, true);
+    bottomShape.holes.push(centerHole);
   }
 
   // 同心円リング状のメッシュ穴を配置（円形境界に自然に整合）
   const slotInfo = [];
   if (meshOn && (barW + slotSize) > 0.1) {
     const bumpClipR = doBumpClip ? bumpR_clip : 0;
-    const innerR_limit = bumpClipR > 0 ? bumpClipR + barW : barW;
+    const innerR_limit = bumpClipR > 0 ? bumpClipR + barW : barW * 2;
     const outerR_limit = bottomR - barW;
     const ringPitch    = barW + slotSize;
     const available    = outerR_limit - innerR_limit;

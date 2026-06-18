@@ -633,97 +633,81 @@ function addEdgeLines(group, thresholdDeg = 25) {
 }
 
 // ============================================================
-//  メッシュ穴あき円盤の構築（A案：パーツ積み上げ方式）
-//  外周リム + 中央キャップ + 放射状バー + 同心円弧セグメントで構成。
-//  穴あき大型 ExtrudeGeometry を使わないため三角分割が安定する。
+//  メッシュ穴あき円盤の構築（凹底面・凸天面 共通）
 // ============================================================
-function buildMeshDisk(radius, thick, topY, barW, slotSize, material, centerHoleR = 0) {
-  const innerR    = centerHoleR > 0 ? centerHoleR + barW : barW;
-  const outerR    = radius - barW;
-  const available = outerR - innerR;
-  const ringPitch = barW + slotSize;
-  const numRings  = available > 0 ? Math.floor(available / ringPitch) : 0;
+function buildMeshDisk(radius, thick, topY, barW, slotSize, material, centerHole = false) {
+  const shape = new THREE.Shape();
+  shape.absarc(0, 0, radius, 0, Math.PI * 2, false);
+  if (centerHole) shape.absarc(0, 0, barW, 0, Math.PI * 2, true);
 
-  // ExtrudeGeometry を作成して meshGroup に追加するヘルパー
-  function addShape(shape, curveSegs) {
-    const geo = new THREE.ExtrudeGeometry(shape, {
-      depth: thick, bevelEnabled: false, curveSegments: curveSegs || 1,
-    });
-    geo.rotateX(-Math.PI / 2);
-    geo.translate(0, topY - thick, 0);
-    meshGroup.add(new THREE.Mesh(geo, material));
-  }
+  // 同心円リング配置
+  const slotInfo     = [];
+  const innerR_limit = barW;
+  const outerR_limit = radius - barW;
+  const ringPitch    = barW + slotSize;
+  const available    = outerR_limit - innerR_limit;
+  const numRings     = available > 0 ? Math.floor(available / ringPitch) : 0;
 
-  // 1. 外周リム（radius → outerR の環）
-  {
-    const s = new THREE.Shape();
-    s.absarc(0, 0, radius, 0, Math.PI * 2, false);
-    const h = new THREE.Path();
-    h.absarc(0, 0, outerR, 0, Math.PI * 2, true);
-    s.holes.push(h);
-    addShape(s, 64);
-  }
+  if (numRings >= 1) {
+    const actualRingPitch = available / numRings;
+    const radSize         = actualRingPitch - barW;
 
-  // 2. 中央キャップ（centerHoleR → innerR のディスク）
-  if (innerR > centerHoleR + 0.01) {
-    const s = new THREE.Shape();
-    s.absarc(0, 0, innerR, 0, Math.PI * 2, false);
-    if (centerHoleR > 0.01) {
-      const h = new THREE.Path();
-      h.absarc(0, 0, centerHoleR, 0, Math.PI * 2, true);
-      s.holes.push(h);
-    }
-    addShape(s, 64);
-  }
+    const outerRingR    = innerR_limit + (numRings - 0.5) * actualRingPitch;
+    const numSlotsFixed = Math.max(6, Math.floor(2 * Math.PI * outerRingR / (slotSize + barW)));
 
-  if (numRings < 1) return;
+        for (let i = 0; i < numRings; i++) {
+      const R    = innerR_limit + (i + 0.5) * actualRingPitch;
+      const circ = 2 * Math.PI * R;
+      const numSlots = numSlotsFixed;
+      const actualTangPitch = circ / numSlots;
+      const tangArc         = actualTangPitch - barW;
+      if (tangArc < barW) continue;
+      const angularStep     = (2 * Math.PI) / numSlots;
+      const tangSize        = tangArc;
+      const angHalf         = (tangArc / 2) / R;
 
-  // スロット数を最外周リングで固定（放射状バーを全リングで角度整列）
-  const actualRingPitch = available / numRings;
-  const outerRingR      = innerR + (numRings - 0.5) * actualRingPitch;
-  const numSlotsFixed   = Math.max(6, Math.floor(2 * Math.PI * outerRingR / (slotSize + barW)));
-  const angularStep     = (2 * Math.PI) / numSlotsFixed;
+      for (let j = 0; j < numSlots; j++) {
+        const theta = j * angularStep;
+        const ang0  = theta - angHalf;
+        const ang1  = theta + angHalf;
+        const Ri    = R - radSize / 2;
+        const Ro    = R + radSize / 2;
 
-  // 3. 放射状バー（スポーク）：矩形 x numSlotsFixed
-  for (let s = 0; s < numSlotsFixed; s++) {
-    const angle = s * angularStep;
-    const halfW = barW / 2;
-    const shape = new THREE.Shape();
-    shape.moveTo(-halfW, innerR);
-    shape.lineTo( halfW, innerR);
-    shape.lineTo( halfW, outerR);
-    shape.lineTo(-halfW, outerR);
-    shape.closePath();
-    const geo = new THREE.ExtrudeGeometry(shape, { depth: thick, bevelEnabled: false });
-    geo.rotateX(-Math.PI / 2);
-    geo.translate(0, topY - thick, 0);
-    const m = new THREE.Mesh(geo, material);
-    m.rotation.y = angle;
-    meshGroup.add(m);
-  }
+        const arcSegs = 6;
+        const slot    = new THREE.Path();
+        slot.moveTo(Ro * Math.cos(ang0), Ro * Math.sin(ang0));
+        for (let k = 1; k <= arcSegs; k++) {
+          const a = ang0 + (ang1 - ang0) * (k / arcSegs);
+          slot.lineTo(Ro * Math.cos(a), Ro * Math.sin(a));
+        }
+        slot.lineTo(Ri * Math.cos(ang1), Ri * Math.sin(ang1));
+        for (let k = 1; k <= arcSegs; k++) {
+          const a = ang1 + (ang0 - ang1) * (k / arcSegs);
+          slot.lineTo(Ri * Math.cos(a), Ri * Math.sin(a));
+        }
+        slot.lineTo(Ro * Math.cos(ang0), Ro * Math.sin(ang0));
+        shape.holes.push(slot);
 
-  // 4. 同心円弧セグメント（各リング x 各スポーク間）
-  for (let i = 0; i < numRings; i++) {
-    const R           = innerR + (i + 0.5) * actualRingPitch;
-    const ringRadialW = actualRingPitch - barW;
-    const r1          = R - ringRadialW / 2;
-    const r2          = R + ringRadialW / 2;
-    const spokeHalfA  = barW / (2 * R);
-    const slotHalfA   = angularStep / 2 - spokeHalfA;
-    if (slotHalfA <= 0) continue;
-
-    for (let s = 0; s < numSlotsFixed; s++) {
-      const mid = (s + 0.5) * angularStep;
-      const a0  = mid - slotHalfA;
-      const a1  = mid + slotHalfA;
-      const segsArc = Math.max(2, Math.ceil((a1 - a0) * r2 / 2));
-      const shape = new THREE.Shape();
-      shape.absarc(0, 0, r2, a0, a1, false);
-      shape.absarc(0, 0, r1, a1, a0, true);
-      shape.closePath();
-      addShape(shape, segsArc);
+        slotInfo.push({ R, theta, tangSize, radSize });
+      }
     }
   }
+
+  const geo = new THREE.ExtrudeGeometry(shape, {
+    depth: thick, bevelEnabled: false, curveSegments: 64,
+  });
+  geo.rotateX(-Math.PI / 2);
+  geo.translate(0, topY - thick, 0);
+  const mesh = new THREE.Mesh(geo, material);
+  mesh.userData.csgRebuild = {
+    type: 'meshDisk',
+    outerR: radius,
+    centerHoleR: 0,
+    thickness: thick,
+    topY: topY,
+    slots: slotInfo,
+  };
+  meshGroup.add(mesh);
 }
 
 // ============================================================
@@ -977,24 +961,94 @@ function buildMesh() {
   const bumpR_clip    = bumpOnForClip ? (parseFloat(document.getElementById('bumpD').value) / 2) : 0;
   const doBumpClip    = bumpOnForClip && bumpR_clip > 0 && bumpR_clip < bottomR;
 
-  // 底面（メッシュON: buildMeshDisk / OFF: ソリッド円盤）
-  if (meshOn && (barW + slotSize) > 0.1) {
-    buildMeshDisk(bottomR, bottomThick, bottomTopY, barW, slotSize, matInner, doBumpClip ? bumpR_clip : 0);
-  } else {
-    const bottomShape = new THREE.Shape();
-    bottomShape.absarc(0, 0, bottomR, 0, Math.PI * 2, false);
-    if (doBumpClip) {
-      const bumpHole = new THREE.Path();
-      bumpHole.absarc(0, 0, bumpR_clip, 0, Math.PI * 2, true);
-      bottomShape.holes.push(bumpHole);
-    }
-    const bottomGeo = new THREE.ExtrudeGeometry(bottomShape, {
-      depth: bottomThick, bevelEnabled: false, curveSegments: segs,
-    });
-    bottomGeo.rotateX(-Math.PI / 2);
-    bottomGeo.translate(0, bottomTopY - bottomThick, 0);
-    meshGroup.add(new THREE.Mesh(bottomGeo, matInner));
+  // 底面は常に ExtrudeGeometry を使う（メッシュ穴 + 中央凸クリッピング両対応）
+  const bottomShape = new THREE.Shape();
+  bottomShape.absarc(0, 0, bottomR, 0, Math.PI * 2, false);
+
+  // 中央凸の足元クリッピング穴
+  if (doBumpClip) {
+    const bumpHole = new THREE.Path();
+    bumpHole.absarc(0, 0, bumpR_clip, 0, Math.PI * 2, true);
+    bottomShape.holes.push(bumpHole);
   }
+
+  // 同心円リング状のメッシュ穴を配置（円形境界に自然に整合）
+  const slotInfo = [];
+  if (meshOn && (barW + slotSize) > 0.1) {
+    const bumpClipR = doBumpClip ? bumpR_clip : 0;
+    const innerR_limit = bumpClipR > 0 ? bumpClipR + barW : barW;
+    const outerR_limit = bottomR - barW;
+    const ringPitch    = barW + slotSize;
+    const available    = outerR_limit - innerR_limit;
+    const numRings     = Math.floor(available / ringPitch);
+
+    if (numRings >= 1) {
+      const actualRingPitch = available / numRings;
+      const radSize         = actualRingPitch - barW;   // スロットの半径方向幅
+
+      for (let i = 0; i < numRings; i++) {
+        const R = innerR_limit + (i + 0.5) * actualRingPitch;
+        const circ = 2 * Math.PI * R;
+        const numSlots = Math.floor(circ / (slotSize + barW));
+        if (numSlots < 1) continue;
+        const actualTangPitch = circ / numSlots;
+        const tangArc         = actualTangPitch - barW;    // スロットの接線方向アーク長
+        const angularStep     = (2 * Math.PI) / numSlots;
+        const tangSize        = tangArc;                   // approximate as straight chord
+        const angHalf         = (tangArc / 2) / R;          // 半角
+
+        for (let j = 0; j < numSlots; j++) {
+          const theta = j * angularStep;
+          const ang0  = theta - angHalf;
+          const ang1  = theta + angHalf;
+          const Ri    = R - radSize / 2;
+          const Ro    = R + radSize / 2;
+
+          // 環状ウェッジ多角形を作成（CW = 穴）
+          const arcSegs = 6;
+          const slot    = new THREE.Path();
+          slot.moveTo(Ro * Math.cos(ang0), Ro * Math.sin(ang0));
+          // 外側アーク (ang0 → ang1)
+          for (let k = 1; k <= arcSegs; k++) {
+            const a = ang0 + (ang1 - ang0) * (k / arcSegs);
+            slot.lineTo(Ro * Math.cos(a), Ro * Math.sin(a));
+          }
+          // 半径方向の直線（外 → 内）
+          slot.lineTo(Ri * Math.cos(ang1), Ri * Math.sin(ang1));
+          // 内側アーク (ang1 → ang0)
+          for (let k = 1; k <= arcSegs; k++) {
+            const a = ang1 + (ang0 - ang1) * (k / arcSegs);
+            slot.lineTo(Ri * Math.cos(a), Ri * Math.sin(a));
+          }
+          // 閉じる
+          slot.lineTo(Ro * Math.cos(ang0), Ro * Math.sin(ang0));
+          bottomShape.holes.push(slot);
+
+          slotInfo.push({ R, theta, tangSize, radSize });
+        }
+      }
+    }
+  }
+
+  const bottomGeo = new THREE.ExtrudeGeometry(bottomShape, {
+    depth: bottomThick,
+    bevelEnabled: false,
+    curveSegments: segs,
+  });
+  bottomGeo.rotateX(-Math.PI / 2);
+  bottomGeo.translate(0, bottomTopY - bottomThick, 0);
+  const bottomMesh = new THREE.Mesh(bottomGeo, matInner);
+  // STL エクスポート時に Manifold で再構築できる情報を userData に
+  bottomMesh.userData.csgRebuild = {
+    type: 'meshDisk',
+    outerR: bottomR,
+    centerHoleR: doBumpClip ? bumpR_clip : 0,
+    thickness: bottomThick,
+    topY: bottomTopY,
+    slots: slotInfo,
+    material: 'inner',
+  };
+  meshGroup.add(bottomMesh);
 
   // -- 凹み側壁 --
   if (holeDepth > 0.01) {

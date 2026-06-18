@@ -1090,10 +1090,6 @@ function buildMesh() {
     const bumpH = parseFloat(document.getElementById('bumpH').value);
     // 凸の底＝凹みの内側底（水が溜まる面）と一致（welding で結合）
     buildCenterBump(bumpR, bumpH + bottomThick, bottomTopY - bottomThick, barW, slotSize, meshOn);
-  } else if (meshOn) {
-    const bumpR = parseFloat(document.getElementById('bumpD').value) / 2;
-    const flatCapThick = Math.max(1.5, barW);
-    buildMeshDisk(bumpR, flatCapThick, bottomTopY + flatCapThick, barW, slotSize, matInner, true);
   }
   // Fusion 360 はエッジ線なしのスムーズシェーディングなのでスキップ
   // addEdgeLines(meshGroup, 25);

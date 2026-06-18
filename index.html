@@ -1119,7 +1119,7 @@ function buildMesh() {
   } else if (meshOn) {
     const bumpR = parseFloat(document.getElementById('bumpD').value) / 2;
     const flatCapThick = Math.max(1.5, barW);
-    buildCenterBump(bumpR, flatCapThick, bottomTopY - bottomThick, barW, slotSize, true);
+    buildCenterBump(bumpR, flatCapThick, bottomTopY, barW, slotSize, true);
   }
   // Fusion 360 はエッジ線なしのスムーズシェーディングなのでスキップ
   // addEdgeLines(meshGroup, 25);

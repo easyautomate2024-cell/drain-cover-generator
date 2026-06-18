@@ -652,13 +652,10 @@ function buildMeshDisk(radius, thick, topY, barW, slotSize, material, centerHole
     const actualRingPitch = available / numRings;
     const radSize         = actualRingPitch - barW;
 
-    const outerRingR    = innerR_limit + (numRings - 0.5) * actualRingPitch;
-    const numSlotsFixed = Math.max(6, Math.floor(2 * Math.PI * outerRingR / (slotSize + barW)));
-
         for (let i = 0; i < numRings; i++) {
       const R    = innerR_limit + (i + 0.5) * actualRingPitch;
       const circ = 2 * Math.PI * R;
-      const numSlots = numSlotsFixed;
+      const numSlots = Math.max(6, Math.floor(circ / (slotSize + barW)));
       const actualTangPitch = circ / numSlots;
       const tangArc         = actualTangPitch - barW;
       if (tangArc < barW) continue;
